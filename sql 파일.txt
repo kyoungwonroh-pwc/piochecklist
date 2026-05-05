@@ -1,0 +1,400 @@
+-- ============================================================
+-- PwC Inventory Count - Supabase Schema (v8 Complete)
+-- 실행 순서: 이 파일을 Supabase SQL Editor에 전체 복사 → RUN 1회
+-- ============================================================
+
+-- ═══ 0. 확장 ═══
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ═══ 1. profiles : 사용자 프로필 ═══
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  login_id      TEXT UNIQUE NOT NULL,
+  full_name     TEXT NOT NULL,
+  company_email TEXT UNIQUE NOT NULL,
+  role          TEXT DEFAULT 'user' CHECK (role IN ('user','admin')),
+  is_active     BOOLEAN DEFAULT true,
+  last_login_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+
+-- ═══ 2. count_sessions : 실사 세션 ═══
+CREATE TABLE IF NOT EXISTS count_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id         UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  title            TEXT NOT NULL,
+  client_name      TEXT,
+  status           TEXT DEFAULT 'in_progress' CHECK (status IN ('in_progress','completed','archived')),
+  current_step     INT DEFAULT 0,
+  mapping_json     JSONB,
+  sample_size_json JSONB,
+  session_template_id UUID,   -- E-2: 템플릿화된 세션 참조
+  template_file_id UUID,      -- A-1/B-1: 사용한 템플릿 참조
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ═══ 3. inventory_lists : RM/WIP/FG 원본 리스트 ═══
+CREATE TABLE IF NOT EXISTS inventory_lists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id  UUID NOT NULL REFERENCES count_sessions(id) ON DELETE CASCADE,
+  category    TEXT NOT NULL CHECK (category IN ('rm','wip','fg')),
+  file_name   TEXT,
+  row_index   INT NOT NULL,
+  raw_data    JSONB NOT NULL,
+  item_code   TEXT,
+  item_name   TEXT,
+  location    TEXT,
+  entity_qty  NUMERIC DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_inv_session_cat ON inventory_lists(session_id, category);
+CREATE INDEX IF NOT EXISTS idx_inv_search ON inventory_lists(session_id, item_code, item_name);
+
+-- ═══ 4. count_samples : 샘플 실사 결과 ═══
+CREATE TABLE IF NOT EXISTS count_samples (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id    UUID NOT NULL REFERENCES count_sessions(id) ON DELETE CASCADE,
+  category      TEXT NOT NULL CHECK (category IN ('rm','wip','fg')),
+  procedure     TEXT NOT NULL CHECK (procedure IN ('sheet_to_floor','floor_to_sheet')),
+  inventory_id  UUID REFERENCES inventory_lists(id) ON DELETE SET NULL,
+  seq           INT,
+  item_code     TEXT,
+  item_name     TEXT,
+  spec          TEXT,
+  unit          TEXT,
+  location      TEXT,
+  tag_no        TEXT,
+  entity_qty    NUMERIC,
+  pwc_qty       NUMERIC,
+  notes         TEXT,
+  status        TEXT DEFAULT 'pending' CHECK (status IN ('pending','match','diff')),
+  confirmed     BOOLEAN DEFAULT false,
+  bom_check     TEXT,
+  comp_rate     TEXT,
+  counted_by    UUID REFERENCES profiles(id),
+  counted_at    TIMESTAMPTZ,
+  device_info   TEXT,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_samples_session ON count_samples(session_id, category, procedure);
+
+-- ═══ 5. template_files : PIO 템플릿 Storage 메타 ═══
+CREATE TABLE IF NOT EXISTS template_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id     UUID REFERENCES count_sessions(id) ON DELETE SET NULL,
+  storage_path   TEXT NOT NULL,
+  original_name  TEXT,
+  is_shared      BOOLEAN DEFAULT false,  -- A-1: true=전사공용
+  uploaded_by    UUID REFERENCES profiles(id),
+  created_at     TIMESTAMPTZ DEFAULT now()
+);
+
+-- ═══ 6. template_schemas : 템플릿 셀 매핑 스키마 (B-2) ═══
+CREATE TABLE IF NOT EXISTS template_schemas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_file_id UUID REFERENCES template_files(id) ON DELETE CASCADE,
+  sheet_pattern    TEXT NOT NULL,     -- '3a', '3b', ...
+  category         TEXT,              -- 'rm','wip','fg'
+  procedure        TEXT,              -- 'sheet_to_floor','floor_to_sheet'
+  start_row        INT NOT NULL,      -- 데이터 시작행
+  col_map          JSONB NOT NULL,    -- {"itemCode":"B","itemName":"C",...}
+  is_wip           BOOLEAN DEFAULT false,
+  created_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ═══ 7. mapping_history : 헤더 매핑 학습 (C-5) ═══
+CREATE TABLE IF NOT EXISTS mapping_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_header TEXT NOT NULL,   -- 클라이언트 리스트의 원본 컬럼명
+  pio_field     TEXT NOT NULL,   -- 매핑된 PIO 필드 (itemCode, itemName, ...)
+  category      TEXT,            -- 'rm','wip','fg'
+  user_id       UUID REFERENCES profiles(id),
+  use_count     INT DEFAULT 1,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(source_header, pio_field, category)
+);
+CREATE INDEX IF NOT EXISTS idx_mapping_hist ON mapping_history(source_header, category);
+
+-- ═══ 8. session_templates : 세션 템플릿화 (E-2) ═══
+CREATE TABLE IF NOT EXISTS session_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name             TEXT NOT NULL,      -- '삼성전자 기본 설정'
+  description      TEXT,
+  client_name      TEXT,
+  mapping_json     JSONB,
+  sample_size_json JSONB,              -- {rm:10, wip:5, fg:8}
+  default_pct      NUMERIC,            -- 기본 샘플 비율(%)
+  created_by       UUID REFERENCES profiles(id),
+  is_public        BOOLEAN DEFAULT true,  -- 전사공용
+  created_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ═══ 9. audit_logs : 감사 로그 (C-4) ═══
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  session_id UUID REFERENCES count_sessions(id) ON DELETE CASCADE,
+  action     TEXT NOT NULL,     -- 'login','create_session','sample','confirm','upload_template',...
+  entity     TEXT,              -- 'count_samples','count_sessions', ...
+  entity_id  UUID,
+  metadata   JSONB,             -- 자유 형식 부가 데이터
+  ip_address TEXT,
+  device_info TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_session ON audit_logs(session_id, created_at DESC);
+
+-- ═══ 10. 트리거: 회원가입 시 profiles 자동 생성 ═══
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, login_id, full_name, company_email, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'login_id', NEW.email),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'company_email', NEW.email),
+    CASE WHEN NEW.raw_user_meta_data->>'login_id' = 'admin' THEN 'admin' ELSE 'user' END
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- updated_at 자동 갱신
+CREATE OR REPLACE FUNCTION touch_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_profiles_touch ON profiles;
+CREATE TRIGGER trg_profiles_touch BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+DROP TRIGGER IF EXISTS trg_sessions_touch ON count_sessions;
+CREATE TRIGGER trg_sessions_touch BEFORE UPDATE ON count_sessions FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+DROP TRIGGER IF EXISTS trg_samples_touch ON count_samples;
+CREATE TRIGGER trg_samples_touch BEFORE UPDATE ON count_samples FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+DROP TRIGGER IF EXISTS trg_maphist_touch ON mapping_history;
+CREATE TRIGGER trg_maphist_touch BEFORE UPDATE ON mapping_history FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- ═══ 11. is_admin 헬퍼 ═══
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- ═══ 12. RLS 활성화 ═══
+ALTER TABLE profiles           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE count_sessions     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory_lists    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE count_samples      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE template_files     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE template_schemas   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mapping_history    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_templates  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs         ENABLE ROW LEVEL SECURITY;
+
+-- profiles
+DROP POLICY IF EXISTS "profiles_select" ON profiles;
+CREATE POLICY "profiles_select" ON profiles FOR SELECT USING (auth.uid() = id OR is_admin());
+DROP POLICY IF EXISTS "profiles_update" ON profiles;
+CREATE POLICY "profiles_update" ON profiles FOR UPDATE USING (auth.uid() = id OR is_admin());
+DROP POLICY IF EXISTS "profiles_delete" ON profiles;
+CREATE POLICY "profiles_delete" ON profiles FOR DELETE USING (is_admin());
+
+-- count_sessions
+DROP POLICY IF EXISTS "sessions_select" ON count_sessions;
+CREATE POLICY "sessions_select" ON count_sessions FOR SELECT USING (owner_id = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "sessions_insert" ON count_sessions;
+CREATE POLICY "sessions_insert" ON count_sessions FOR INSERT WITH CHECK (owner_id = auth.uid());
+DROP POLICY IF EXISTS "sessions_update" ON count_sessions;
+CREATE POLICY "sessions_update" ON count_sessions FOR UPDATE USING (owner_id = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "sessions_delete" ON count_sessions;
+CREATE POLICY "sessions_delete" ON count_sessions FOR DELETE USING (owner_id = auth.uid() OR is_admin());
+
+-- inventory_lists
+DROP POLICY IF EXISTS "inv_select" ON inventory_lists;
+CREATE POLICY "inv_select" ON inventory_lists FOR SELECT USING (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND (owner_id=auth.uid() OR is_admin())));
+DROP POLICY IF EXISTS "inv_insert" ON inventory_lists;
+CREATE POLICY "inv_insert" ON inventory_lists FOR INSERT WITH CHECK (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND owner_id=auth.uid()));
+DROP POLICY IF EXISTS "inv_delete" ON inventory_lists;
+CREATE POLICY "inv_delete" ON inventory_lists FOR DELETE USING (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND (owner_id=auth.uid() OR is_admin())));
+
+-- count_samples
+DROP POLICY IF EXISTS "smp_select" ON count_samples;
+CREATE POLICY "smp_select" ON count_samples FOR SELECT USING (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND (owner_id=auth.uid() OR is_admin())));
+DROP POLICY IF EXISTS "smp_insert" ON count_samples;
+CREATE POLICY "smp_insert" ON count_samples FOR INSERT WITH CHECK (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND owner_id=auth.uid()));
+DROP POLICY IF EXISTS "smp_update" ON count_samples;
+CREATE POLICY "smp_update" ON count_samples FOR UPDATE USING (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND (owner_id=auth.uid() OR is_admin())));
+DROP POLICY IF EXISTS "smp_delete" ON count_samples;
+CREATE POLICY "smp_delete" ON count_samples FOR DELETE USING (
+  EXISTS(SELECT 1 FROM count_sessions WHERE id=session_id AND (owner_id=auth.uid() OR is_admin())));
+
+-- template_files : 공용 또는 본인 소유
+DROP POLICY IF EXISTS "tpl_select" ON template_files;
+CREATE POLICY "tpl_select" ON template_files FOR SELECT USING (
+  is_shared = true OR uploaded_by = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "tpl_insert" ON template_files;
+CREATE POLICY "tpl_insert" ON template_files FOR INSERT WITH CHECK (uploaded_by = auth.uid());
+DROP POLICY IF EXISTS "tpl_update" ON template_files;
+CREATE POLICY "tpl_update" ON template_files FOR UPDATE USING (uploaded_by = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "tpl_delete" ON template_files;
+CREATE POLICY "tpl_delete" ON template_files FOR DELETE USING (uploaded_by = auth.uid() OR is_admin());
+
+-- template_schemas
+DROP POLICY IF EXISTS "tsc_all" ON template_schemas;
+CREATE POLICY "tsc_all" ON template_schemas FOR ALL USING (true) WITH CHECK (
+  EXISTS(SELECT 1 FROM template_files WHERE id=template_file_id AND (uploaded_by=auth.uid() OR is_admin())));
+
+-- mapping_history : 모두 읽기 가능(공유 학습), 본인 것만 쓰기
+DROP POLICY IF EXISTS "mh_select" ON mapping_history;
+CREATE POLICY "mh_select" ON mapping_history FOR SELECT USING (true);
+DROP POLICY IF EXISTS "mh_insert" ON mapping_history;
+CREATE POLICY "mh_insert" ON mapping_history FOR INSERT WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "mh_update" ON mapping_history;
+CREATE POLICY "mh_update" ON mapping_history FOR UPDATE USING (user_id = auth.uid() OR is_admin());
+
+-- session_templates : 전사공용
+DROP POLICY IF EXISTS "st_select" ON session_templates;
+CREATE POLICY "st_select" ON session_templates FOR SELECT USING (is_public = true OR created_by = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "st_insert" ON session_templates;
+CREATE POLICY "st_insert" ON session_templates FOR INSERT WITH CHECK (created_by = auth.uid());
+DROP POLICY IF EXISTS "st_update" ON session_templates;
+CREATE POLICY "st_update" ON session_templates FOR UPDATE USING (created_by = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "st_delete" ON session_templates;
+CREATE POLICY "st_delete" ON session_templates FOR DELETE USING (created_by = auth.uid() OR is_admin());
+
+-- audit_logs
+DROP POLICY IF EXISTS "al_select" ON audit_logs;
+CREATE POLICY "al_select" ON audit_logs FOR SELECT USING (user_id = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "al_insert" ON audit_logs;
+CREATE POLICY "al_insert" ON audit_logs FOR INSERT WITH CHECK (user_id = auth.uid() OR auth.uid() IS NOT NULL);
+
+-- ═══ 13. Storage 버킷 생성 (UI에서 생성 권장, 아래는 참고 SQL) ═══
+-- Supabase Dashboard → Storage → New bucket:
+--   버킷명: 'templates'           / Public: OFF
+--   버킷명: 'inventory-lists'     / Public: OFF  (옵션)
+-- 이후 아래 정책을 Storage > Policies > templates 에서 추가하거나 아래 SQL 실행:
+
+DROP POLICY IF EXISTS "storage_tpl_insert" ON storage.objects;
+CREATE POLICY "storage_tpl_insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (
+  bucket_id = 'templates' AND (
+    (storage.foldername(name))[1] = auth.uid()::text  -- 개인 폴더
+    OR (storage.foldername(name))[1] = 'shared'       -- 공용 폴더 (관리자만)
+  )
+);
+DROP POLICY IF EXISTS "storage_tpl_select" ON storage.objects;
+CREATE POLICY "storage_tpl_select" ON storage.objects FOR SELECT TO authenticated USING (
+  bucket_id = 'templates' AND (
+    (storage.foldername(name))[1] = auth.uid()::text
+    OR (storage.foldername(name))[1] = 'shared'
+    OR is_admin()
+  )
+);
+DROP POLICY IF EXISTS "storage_tpl_update" ON storage.objects;
+CREATE POLICY "storage_tpl_update" ON storage.objects FOR UPDATE TO authenticated USING (
+  bucket_id = 'templates' AND (
+    (storage.foldername(name))[1] = auth.uid()::text OR is_admin()
+  )
+);
+DROP POLICY IF EXISTS "storage_tpl_delete" ON storage.objects;
+CREATE POLICY "storage_tpl_delete" ON storage.objects FOR DELETE TO authenticated USING (
+  bucket_id = 'templates' AND (
+    (storage.foldername(name))[1] = auth.uid()::text OR is_admin()
+  )
+);
+
+-- ═══ 14. 통계용 View (E-1 대시보드) ═══
+CREATE OR REPLACE VIEW v_user_stats AS
+SELECT
+  p.id AS user_id,
+  p.full_name, p.login_id, p.role,
+  COUNT(DISTINCT s.id)                             AS session_count,
+  COUNT(DISTINCT s.id) FILTER (WHERE s.status='completed') AS completed_count,
+  COUNT(DISTINCT cs.id)                            AS sample_count,
+  COUNT(DISTINCT cs.id) FILTER (WHERE cs.status='match')   AS match_count,
+  COUNT(DISTINCT cs.id) FILTER (WHERE cs.status='diff')    AS diff_count,
+  COUNT(DISTINCT cs.id) FILTER (WHERE cs.status='pending') AS pending_count,
+  MAX(p.last_login_at)                             AS last_login_at
+FROM profiles p
+LEFT JOIN count_sessions s  ON s.owner_id = p.id
+LEFT JOIN count_samples cs  ON cs.counted_by = p.id
+GROUP BY p.id;
+
+-- (관리자만 보도록 뷰 권한은 기본 RLS를 따름)
+
+-- ═══ 15. last_login_at 갱신용 RPC ═══
+CREATE OR REPLACE FUNCTION touch_last_login()
+RETURNS void AS $$
+  UPDATE profiles SET last_login_at = now() WHERE id = auth.uid();
+$$ LANGUAGE SQL SECURITY DEFINER;
+
+-- ═══ 16. login_id -> company_email 조회 RPC (로그인 시 사용) ═══
+CREATE OR REPLACE FUNCTION get_email_by_login_id(p_login_id TEXT)
+RETURNS TABLE(company_email TEXT, is_active BOOLEAN) AS $$
+  SELECT company_email, is_active FROM profiles WHERE login_id = p_login_id LIMIT 1;
+$$ LANGUAGE SQL SECURITY DEFINER;
+
+-- 완료!
+SELECT '✅ Schema installed successfully.' AS result;
+
+-- ═══════════════════════════════════════════════
+-- 기존 admin 관련 데이터 초기화
+-- ═══════════════════════════════════════════════
+-- DELETE FROM auth.users WHERE raw_user_meta_data->>'login_id' = 'admin';
+-- DELETE FROM profiles WHERE login_id = 'admin';
+
+-- ═══════════════════════════════════════════════
+-- 트리거 재설치 (더 안전한 버전)
+-- ═══════════════════════════════════════════════
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, login_id, full_name, company_email, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'login_id', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'company_email', NEW.email),
+    CASE WHEN NEW.raw_user_meta_data->>'login_id' = 'admin' THEN 'admin' ELSE 'user' END
+  );
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- 에러 나도 auth 가입은 성공시킴 (profile은 수동 생성 가능)
+  RAISE WARNING 'handle_new_user error: %', SQLERRM;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- 권한 부여 (중요!)
+GRANT ALL ON public.profiles TO postgres, anon, authenticated, service_role;
+
+SELECT '✅ 트리거 재설치 완료. 이제 다시 회원가입 해보세요.' AS result;
+
+

@@ -81,6 +81,7 @@ input,select,textarea{font-family:inherit;font-size:14px}
 
 main{padding:calc(var(--nav-h) + var(--snav-h) + 20px) 20px 60px;max-width:1400px;margin:0 auto}
 .page{display:none}.page.active{display:block}
+.page.auth-page.active{display:flex}
 .step{display:none}.step.active{display:block}
 .step-title{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
 .step-desc{font-size:14px;color:var(--k3);margin-bottom:24px;line-height:1.6}
@@ -243,6 +244,32 @@ tr:hover{background:var(--o4)}
 .empty-state .desc{font-size:13px}
 
 .chart-wrap{position:relative;height:260px}
+/* ═══ MOBILE ROW DETAIL ═══ */
+.modal-row{max-width:520px;padding:18px}
+.modal-row-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--k6)}
+.modal-row-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800}
+.mrd-close{width:32px;height:32px;border-radius:8px;background:var(--k7);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--k2)}
+.mrd-close:hover{background:var(--k6)}
+.mrd-pos{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;padding:8px 10px;background:var(--k7);border-radius:var(--rad2)}
+.mrd-counter{font-size:12px;color:var(--k3);font-weight:700}
+.mrd-table{display:flex;flex-direction:column;border:1px solid var(--k6);border-radius:var(--rad2);overflow:hidden;margin-bottom:14px}
+.mrd-row{display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--k6);min-height:40px}
+.mrd-row:last-child{border-bottom:none}
+.mrd-k{background:var(--k7);padding:10px 12px;font-size:12px;font-weight:700;color:var(--k2);display:flex;align-items:center}
+.mrd-v{padding:8px 12px;font-size:13px;display:flex;align-items:center;min-width:0;word-break:break-all}
+.mrd-v.mrd-code{font-family:var(--fm);font-weight:600}
+.mrd-v input{font-size:14px}
+.mrd-actions{display:flex;gap:8px;flex-wrap:wrap}
+.mrd-actions .btn-confirm{flex:1;min-width:140px;padding:12px;font-size:14px}
+.row-tap{cursor:pointer}
+.row-tap:hover{background:var(--k7)}
+@media (max-width:768px){
+  .mrd-row{grid-template-columns:96px 1fr}
+  .mrd-k{padding:8px 10px;font-size:11px}
+  .mrd-v{padding:8px 10px;font-size:12px}
+  .modal-row{padding:14px;max-height:92vh}
+}
+
 </style>
 </head>
 <body>
@@ -371,7 +398,7 @@ tr:hover{background:var(--o4)}
 <!-- STEP 0 -->
 <section class="step active" id="step-0">
   <h1 class="step-title">1. 파일 업로드</h1>
-  <p class="step-desc">실사 리스트 (RM/WIP/FG) 및 PIO 템플릿을 업로드합니다. <strong>공용 템플릿</strong>이 등록되어 있으면 자동 선택됩니다.</p>
+  <p class="step-desc">실사 리스트 (RM/WIP/FG)를 업로드합니다. PIO 템플릿은 관리자가 등록한 <strong>공용 템플릿</strong>이 자동 적용됩니다.</p>
   <div class="grid-3">
     <div class="card">
       <div class="card-title"><div class="ct-left"><span class="tag tag-rm">RM</span>원재료</div></div>
@@ -399,14 +426,15 @@ tr:hover{background:var(--o4)}
     </div>
   </div>
 
-  <div class="card" style="border:2px solid var(--p);background:var(--p2)">
+  <!-- 관리자 전용 PIO 템플릿 업로드 카드 (일반 사용자에게는 JS로 숨김) -->
+  <div class="card" id="tpl-upload-card" style="border:2px solid var(--p);background:var(--p2);display:none">
     <div class="card-title">
-      <div class="ct-left"><span class="tag tag-tpl">TEMPLATE</span>PIO Inventory Count Template</div>
+      <div class="ct-left"><span class="tag tag-tpl">TEMPLATE</span>PIO Inventory Count Template <span style="font-size:11px;color:var(--p);margin-left:6px">(관리자 전용)</span></div>
       <div id="tpl-shared-area" style="font-size:12px"></div>
     </div>
     <div class="alert alert-purple" id="tpl-shared-info" style="margin-bottom:12px;display:none"></div>
     <div class="alert alert-purple" style="margin-bottom:12px">
-      📌 공용 템플릿이 있으면 자동으로 선택되며, 없으면 직접 업로드합니다. (관리자만 공용 템플릿 등록 가능)
+      📌 공용 템플릿은 <strong>관리자만</strong> 등록/수정할 수 있습니다. 업로드 즉시 공용 템플릿으로 등록되어 모든 사용자에게 적용됩니다.
     </div>
     <div class="upload-box" id="up-tpl" onclick="document.getElementById('f-tpl').click()" style="background:#fff">
       <div class="ub-icon">📋</div><div class="ub-title">PIO 템플릿 파일</div>
@@ -415,13 +443,15 @@ tr:hover{background:var(--o4)}
     <input type="file" id="f-tpl" accept=".xlsx" style="display:none" onchange="loadTemplate(event)">
   </div>
 
+  <!-- 일반 사용자용 안내 (공용 템플릿 자동 적용 상태) -->
+
   <div class="card">
     <div class="card-title"><div class="ct-left">📋 업로드 현황</div></div>
     <div class="stat-grid">
       <div class="stat"><div class="stat-label">원재료 (유효)</div><div class="stat-value p" id="cnt-rm">0</div></div>
       <div class="stat"><div class="stat-label">재공품 (유효)</div><div class="stat-value p" id="cnt-wip">0</div></div>
       <div class="stat"><div class="stat-label">제품 (유효)</div><div class="stat-value p" id="cnt-fg">0</div></div>
-      <div class="stat"><div class="stat-label">PIO 템플릿</div><div class="stat-value" id="cnt-tpl" style="color:var(--p)">—</div></div>
+      <div class="stat" id="stat-tpl-wrap"><div class="stat-label">PIO 템플릿</div><div class="stat-value" id="cnt-tpl" style="color:var(--p)">—</div></div>
     </div>
   </div>
   <div class="footer-nav">
@@ -509,7 +539,8 @@ tr:hover{background:var(--o4)}
     <div style="font-size:13px;color:var(--k3)">현재 <strong id="sf-cur-n" style="color:var(--o)">0</strong> 건. 추가 샘플링:</div>
     <div style="display:flex;gap:8px;align-items:center">
       <input type="number" class="num-input" id="sf-add-n" min="1" value="1" style="width:80px">
-      <button class="btn btn-p btn-sm" onclick="addMoreSamples()">➕ 샘플 추가</button>
+      <button class="btn btn-p btn-sm" onclick="addMoreSamples()">🎲 샘플 추가</button>
+      <button class="btn btn-s btn-sm" onclick="openManualAdd('sf')">🔎 Manual 추가</button>
     </div>
   </div>
   <div class="stat-grid" style="margin-bottom:16px">
@@ -785,6 +816,65 @@ tr:hover{background:var(--o4)}
   </div>
 </div>
 
+
+
+<!-- ═══ MOBILE ROW DETAIL MODAL (Step 4, 5) ═══ -->
+<div class="modal-bg" id="modal-row-detail">
+  <div class="modal modal-row">
+    <div class="modal-row-head">
+      <div class="modal-row-title">
+        <span id="mrd-proc-tag" class="tag tag-rm">RM</span>
+        <span id="mrd-title">항목 상세</span>
+      </div>
+      <button class="mrd-close" onclick="closeRowDetail()" aria-label="닫기">✕</button>
+    </div>
+    <div class="mrd-pos">
+      <button class="btn btn-s btn-xs" onclick="rowDetailPrev()">← 이전</button>
+      <div class="mrd-counter"><span id="mrd-pos">1 / 1</span></div>
+      <button class="btn btn-s btn-xs" onclick="rowDetailNext()">다음 →</button>
+    </div>
+    <div class="mrd-table">
+      <div class="mrd-row"><div class="mrd-k">No.</div><div class="mrd-v" id="mrd-no"></div></div>
+      <div class="mrd-row"><div class="mrd-k">품목코드</div><div class="mrd-v mrd-code" id="mrd-code"></div></div>
+      <div class="mrd-row"><div class="mrd-k">품목명</div><div class="mrd-v" id="mrd-name"></div></div>
+      <div class="mrd-row"><div class="mrd-k">규격</div><div class="mrd-v" id="mrd-spec"></div></div>
+      <div class="mrd-row"><div class="mrd-k">단위</div><div class="mrd-v" id="mrd-unit"></div></div>
+      <div class="mrd-row"><div class="mrd-k">위치</div><div class="mrd-v" id="mrd-loc"></div></div>
+      <div class="mrd-row"><div class="mrd-k">장부수량</div><div class="mrd-v mrd-code" id="mrd-entity"></div></div>
+      <div class="mrd-row"><div class="mrd-k">PwC 실사수량</div><div class="mrd-v"><input type="number" class="num-input" id="mrd-pwc" style="width:100%"></div></div>
+      <div class="mrd-row"><div class="mrd-k">차이</div><div class="mrd-v mrd-code" id="mrd-diff"></div></div>
+      <div class="mrd-row"><div class="mrd-k">상태</div><div class="mrd-v" id="mrd-status"></div></div>
+      <div class="mrd-row"><div class="mrd-k">차이 사유 / 비고</div><div class="mrd-v"><input type="text" class="diff-input" id="mrd-notes" style="width:100%" placeholder="차이 사유 / 비고..."></div></div>
+    </div>
+    <div class="mrd-actions">
+      <button class="btn-confirm" id="mrd-confirm-btn" onclick="rowDetailConfirm()">확인</button>
+      <button class="btn btn-s" id="mrd-resample-btn" onclick="rowDetailResample()" style="display:none">🎲 재샘플링</button>
+      <button class="btn btn-r btn-sm" id="mrd-delete-btn" onclick="rowDetailDelete()">🗑️ 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FS MANUAL ADD MODAL (Step 3, Step 4) ═══ -->
+<div class="modal-bg" id="modal-manual-add">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" style="justify-content:space-between;display:flex">
+      <span>🔎 Manual 추가 — <span id="mma-proc-label"></span></span>
+      <button class="mrd-close" onclick="closeModal('modal-manual-add')" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--k3);margin-bottom:10px">품목코드 또는 품목명을 입력해 검색 후, 클릭하여 추가합니다.</div>
+      <div class="dropdown" style="position:relative">
+        <div class="search-box">
+          <input type="text" id="mma-search" class="auth-input" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onManualAddSearch()">
+        </div>
+        <div class="dropdown-list open" id="mma-dropdown" style="position:static;max-height:360px;margin-top:8px;border:1px solid var(--k5);border-radius:var(--rad2)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('modal-manual-add')">닫기</button>
+    </div>
+  </div>
+</div>
 
 
 <script>
@@ -1137,6 +1227,8 @@ async function openSession(id){
     showPage('app');
     // UI 복원
     restoreUIFromState();
+    // 역할별 PIO 템플릿 UI + 공용 템플릿 자동 적용 (일반 사용자)
+    try{ await loadSharedTemplateIfAny(); }catch(e){ console.warn(e); }
     goStep(S.currentStep);
     subscribeRealtime();  // C-4 실시간 동기화
     await writeAudit('open_session', 'count_sessions', id, {});
@@ -1320,14 +1412,42 @@ async function loadTemplate(e){
 }
 
 async function loadSharedTemplateIfAny(){
+  // 역할별 UI 전환
+  applyTemplateUIForRole();
   // A-1: 공용 템플릿 자동 선택
   const { data } = await supa.from('template_files').select('*').eq('is_shared', true).order('created_at', { ascending:false }).limit(1);
-  if(!data || !data.length) return;
+  const isAdmin = (S.profile?.role === 'admin');
+  const userInfoMsg = document.getElementById('tpl-user-info-msg');
+  if(!data || !data.length){
+    if(!isAdmin && userInfoMsg){
+      userInfoMsg.innerHTML = '⚠️ 현재 등록된 공용 PIO 템플릿이 없습니다. 관리자에게 문의해 주세요. (템플릿 없이도 실사 리스트만으로 Step 진행은 가능합니다.)';
+    }
+    return;
+  }
   const tf = data[0];
   const infoBox = document.getElementById('tpl-shared-info');
-  infoBox.style.display = 'block';
-  infoBox.innerHTML = `🌐 공용 템플릿 "<strong>${escapeHtml(tf.original_name)}</strong>"이 등록되어 있습니다. 
-    <button class="btn btn-p btn-xs" onclick="useSharedTemplate('${tf.id}')">이 템플릿 사용</button>`;
+  if(isAdmin && infoBox){
+    infoBox.style.display = 'block';
+    infoBox.innerHTML = `🌐 현재 공용 템플릿: "<strong>${escapeHtml(tf.original_name)}</strong>"
+      <button class="btn btn-p btn-xs" onclick="useSharedTemplate('${tf.id}')">이 템플릿 로드</button>`;
+  }
+  if(userInfoMsg){
+    userInfoMsg.innerHTML = `📌 공용 PIO 템플릿 "<strong>${escapeHtml(tf.original_name)}</strong>"이 자동으로 적용됩니다.`;
+  }
+  // 일반 사용자: 자동으로 공용 템플릿 사용
+  if(!isAdmin && S.sessionId && !S.template.templateFileId){
+    try{ await useSharedTemplate(tf.id); }catch(e){ console.warn('auto shared template load failed', e); }
+  }
+}
+
+function applyTemplateUIForRole(){
+  const isAdmin = (S.profile?.role === 'admin');
+  const adminCard = document.getElementById('tpl-upload-card');
+  const userCard  = document.getElementById('tpl-user-info');
+  const statWrap  = document.getElementById('stat-tpl-wrap');
+  if(adminCard) adminCard.style.display = isAdmin ? '' : 'none';
+  if(userCard)  userCard.style.display  = isAdmin ? 'none' : '';
+  if(statWrap)  statWrap.style.display  = isAdmin ? '' : 'none';
 }
 window.useSharedTemplate = async function(tfId){
   showLoading('공용 템플릿 로드 중...');
@@ -1622,7 +1742,7 @@ function renderSFRow(it, i, cat){
   const modCls = (it.pwcQty !== it.entityQty) ? 'modified' : '';
   const btnCls = it.confirmed ? 'btn-confirm done' : 'btn-confirm';
   const btnTxt = it.confirmed ? '✓ 확인됨' : '확인';
-  return `<tr>
+  return `<tr class="row-tap" data-idx="${i}" onclick="onRowClick(event,'sf','${cat}',${i})">
     <td>${i+1}</td>
     <td style="font-family:var(--fm);font-weight:600;color:var(--o)">${escapeHtml(it.itemCode)}</td>
     <td>${escapeHtml(it.itemName)}</td>
@@ -1630,13 +1750,13 @@ function renderSFRow(it, i, cat){
     <td>${escapeHtml(it.unit)}</td>
     <td>${escapeHtml(it.location)}</td>
     <td style="text-align:right;font-family:var(--fm);font-weight:600">${fmt(it.entityQty)}</td>
-    <td><input type="number" class="num-input ${modCls}" value="${it.pwcQty??''}" onchange="updateItem('sf','${cat}',${i},'pwcQty',this.value)"></td>
-    <td><button class="${btnCls}" onclick="confirmItem('sf','${cat}',${i})">${btnTxt}</button></td>
+    <td><input type="number" class="num-input ${modCls}" value="${it.pwcQty??''}" onchange="updateItem('sf','${cat}',${i},'pwcQty',this.value)" onclick="event.stopPropagation()"></td>
+    <td><button class="${btnCls}" onclick="event.stopPropagation();confirmItem('sf','${cat}',${i})">${btnTxt}</button></td>
     <td style="text-align:right;font-weight:700;color:${diffColor};font-family:var(--fm)">${diffStr}</td>
     <td><span class="status ${stCls}">${stTxt}</span></td>
-    <td><input type="text" class="diff-input" value="${escapeAttr(it.notes)}" onchange="updateItem('sf','${cat}',${i},'notes',this.value)" placeholder="차이 사유..."></td>
-    <td><button class="btn btn-s btn-xs" onclick="resampleOne('${cat}',${i})">🎲</button></td>
-    <td><button class="btn-del" onclick="removeSFItem('${cat}',${i})">🗑️</button></td>
+    <td><input type="text" class="diff-input" value="${escapeAttr(it.notes)}" onchange="updateItem('sf','${cat}',${i},'notes',this.value)" onclick="event.stopPropagation()" placeholder="차이 사유..."></td>
+    <td><button class="btn btn-s btn-xs" onclick="event.stopPropagation();resampleOne('${cat}',${i})">🎲</button></td>
+    <td><button class="btn-del" onclick="event.stopPropagation();removeSFItem('${cat}',${i})">🗑️</button></td>
   </tr>`;
 }
 async function resampleOne(cat, i){
@@ -1872,7 +1992,7 @@ function renderFSRow(it, i, cat){
   const modCls = (it.pwcQty !== it.entityQty) ? 'modified' : '';
   const btnCls = it.confirmed ? 'btn-confirm done' : 'btn-confirm';
   const btnTxt = it.confirmed ? '✓ 확인됨' : '확인';
-  return `<tr>
+  return `<tr class="row-tap" data-idx="${i}" onclick="onRowClick(event,'fs','${cat}',${i})">
     <td>${i+1}</td>
     <td style="font-family:var(--fm);font-weight:600;color:var(--o)">${escapeHtml(it.itemCode)}</td>
     <td>${escapeHtml(it.itemName)}</td>
@@ -1880,12 +2000,12 @@ function renderFSRow(it, i, cat){
     <td>${escapeHtml(it.unit)}</td>
     <td>${escapeHtml(it.location)}</td>
     <td style="text-align:right;font-family:var(--fm);font-weight:600">${fmt(it.entityQty)}</td>
-    <td><input type="number" class="num-input ${modCls}" value="${it.pwcQty??''}" onchange="updateItem('fs','${cat}',${i},'pwcQty',this.value)"></td>
-    <td><button class="${btnCls}" onclick="confirmItem('fs','${cat}',${i})">${btnTxt}</button></td>
+    <td><input type="number" class="num-input ${modCls}" value="${it.pwcQty??''}" onchange="updateItem('fs','${cat}',${i},'pwcQty',this.value)" onclick="event.stopPropagation()"></td>
+    <td><button class="${btnCls}" onclick="event.stopPropagation();confirmItem('fs','${cat}',${i})">${btnTxt}</button></td>
     <td style="text-align:right;font-weight:700;color:${diffColor};font-family:var(--fm)">${diffStr}</td>
     <td><span class="status ${stCls}">${stTxt}</span></td>
-    <td><input type="text" class="diff-input" value="${escapeAttr(it.notes)}" onchange="updateItem('fs','${cat}',${i},'notes',this.value)"></td>
-    <td><button class="btn-del" onclick="removeFSItem('${cat}',${i})">🗑️</button></td>
+    <td><input type="text" class="diff-input" value="${escapeAttr(it.notes)}" onchange="updateItem('fs','${cat}',${i},'notes',this.value)" onclick="event.stopPropagation()"></td>
+    <td><button class="btn-del" onclick="event.stopPropagation();removeFSItem('${cat}',${i})">🗑️</button></td>
   </tr>`;
 }
 function updateFSStats(){
@@ -2497,6 +2617,235 @@ function showLoading(msg){
   document.getElementById('loading').classList.add('on');
 }
 function hideLoading(){ document.getElementById('loading').classList.remove('on'); }
+/* ══════════════════ MOBILE ROW DETAIL (모바일 행 팝업) ══════════════════ */
+const MRD = { proc:null, cat:null, index:0 };
+
+function onRowClick(e, proc, cat, i){
+  // 입력/버튼에서 발생한 클릭은 무시 (stopPropagation로 대부분 차단되지만 안전장치)
+  const tag = (e.target.tagName||'').toUpperCase();
+  if(['INPUT','BUTTON','SELECT','TEXTAREA','A','LABEL'].includes(tag)) return;
+  openRowDetail(proc, cat, i);
+}
+
+function openRowDetail(proc, cat, i){
+  MRD.proc = proc; MRD.cat = cat; MRD.index = i;
+  renderRowDetail();
+  document.getElementById('modal-row-detail').classList.add('on');
+}
+
+function closeRowDetail(){
+  // 값 동기화: 현재 입력값 저장
+  syncRowDetailInputs();
+  document.getElementById('modal-row-detail').classList.remove('on');
+}
+
+function getRowItems(){
+  return (MRD.proc === 'sf' ? S.sfItems : S.fsItems)[MRD.cat] || [];
+}
+
+function renderRowDetail(){
+  const items = getRowItems();
+  if(!items.length){ closeRowDetail(); return; }
+  if(MRD.index < 0) MRD.index = 0;
+  if(MRD.index >= items.length) MRD.index = items.length - 1;
+  const it = items[MRD.index];
+  const i = MRD.index;
+  // title
+  document.getElementById('mrd-title').textContent =
+    (MRD.proc === 'sf' ? 'Sheet→Floor' : 'Floor→Sheet') + ' 상세';
+  const tag = document.getElementById('mrd-proc-tag');
+  tag.className = 'tag ' + (CAT_TAG[MRD.cat] || 'tag-rm');
+  tag.textContent = (CAT_CODE[MRD.cat] || MRD.cat.toUpperCase());
+  document.getElementById('mrd-pos').textContent = `${i+1} / ${items.length}`;
+  document.getElementById('mrd-no').textContent = (i+1);
+  document.getElementById('mrd-code').textContent = it.itemCode || '';
+  document.getElementById('mrd-name').textContent = it.itemName || '';
+  document.getElementById('mrd-spec').textContent = it.spec || '-';
+  document.getElementById('mrd-unit').textContent = it.unit || '-';
+  document.getElementById('mrd-loc').textContent = it.location || '-';
+  document.getElementById('mrd-entity').textContent = (it.entityQty ?? 0).toLocaleString();
+  document.getElementById('mrd-pwc').value = (it.pwcQty ?? '');
+  document.getElementById('mrd-notes').value = (it.notes ?? '');
+  // diff + status
+  const diff = it.confirmed ? (Number(it.pwcQty) - Number(it.entityQty)) : '';
+  const diffEl = document.getElementById('mrd-diff');
+  if(diff === ''){
+    diffEl.textContent = '-'; diffEl.style.color = 'var(--k4)';
+  } else {
+    diffEl.textContent = (diff > 0 ? '+'+diff : ''+diff);
+    diffEl.style.color = (diff === 0 ? 'var(--g)' : 'var(--r)');
+  }
+  const statusEl = document.getElementById('mrd-status');
+  if(it.status === 'match') statusEl.innerHTML = '<span class="status st-match">일치</span>';
+  else if(it.status === 'diff') statusEl.innerHTML = '<span class="status st-diff">불일치</span>';
+  else statusEl.innerHTML = '<span class="status st-pending">미확인</span>';
+  // 버튼 상태
+  const cBtn = document.getElementById('mrd-confirm-btn');
+  cBtn.textContent = it.confirmed ? '✓ 확인됨' : '확인';
+  cBtn.className = it.confirmed ? 'btn-confirm done' : 'btn-confirm';
+  // resample: SF에서만
+  document.getElementById('mrd-resample-btn').style.display = (MRD.proc === 'sf') ? '' : 'none';
+}
+
+async function syncRowDetailInputs(){
+  const items = getRowItems();
+  if(!items.length) return;
+  const it = items[MRD.index]; if(!it) return;
+  const pwcVal = document.getElementById('mrd-pwc').value;
+  const notesVal = document.getElementById('mrd-notes').value;
+  let changed = false;
+  const newPwc = pwcVal === '' ? null : parseNum(pwcVal);
+  if((it.pwcQty ?? null) !== newPwc){
+    await updateItem(MRD.proc, MRD.cat, MRD.index, 'pwcQty', pwcVal);
+    changed = true;
+  }
+  if((it.notes || '') !== (notesVal || '')){
+    await updateItem(MRD.proc, MRD.cat, MRD.index, 'notes', notesVal);
+    changed = true;
+  }
+  return changed;
+}
+
+async function rowDetailPrev(){
+  await syncRowDetailInputs();
+  const items = getRowItems(); if(!items.length) return;
+  MRD.index = (MRD.index - 1 + items.length) % items.length;
+  renderRowDetail();
+}
+async function rowDetailNext(){
+  await syncRowDetailInputs();
+  const items = getRowItems(); if(!items.length) return;
+  MRD.index = (MRD.index + 1) % items.length;
+  renderRowDetail();
+}
+async function rowDetailConfirm(){
+  await syncRowDetailInputs();
+  await confirmItem(MRD.proc, MRD.cat, MRD.index);
+  renderRowDetail();
+}
+async function rowDetailDelete(){
+  if(MRD.proc === 'sf'){ await removeSFItem(MRD.cat, MRD.index); }
+  else { await removeFSItem(MRD.cat, MRD.index); }
+  const items = getRowItems();
+  if(!items.length){ closeRowDetail(); return; }
+  if(MRD.index >= items.length) MRD.index = items.length - 1;
+  renderRowDetail();
+}
+async function rowDetailResample(){
+  if(MRD.proc !== 'sf') return;
+  await resampleOne(MRD.cat, MRD.index);
+  renderRowDetail();
+}
+
+/* ══════════════════ MANUAL ADD (Sheet→Floor / Floor→Sheet 검색 추가) ══════════════════ */
+const MMA = { proc:null, cat:null };
+
+function openManualAdd(proc){
+  MMA.proc = proc;
+  MMA.cat = (proc === 'sf' ? S.currentSFTab : S.currentFSTab);
+  document.getElementById('mma-proc-label').textContent =
+    (proc === 'sf' ? 'Sheet→Floor' : 'Floor→Sheet') + ' / ' + (CAT_CODE[MMA.cat] || MMA.cat.toUpperCase());
+  document.getElementById('mma-search').value = '';
+  document.getElementById('mma-dropdown').innerHTML =
+    `<div class="dropdown-item" style="color:var(--k3);grid-template-columns:1fr">품목코드 또는 품목명으로 검색하세요.</div>`;
+  document.getElementById('modal-manual-add').classList.add('on');
+  setTimeout(()=>document.getElementById('mma-search').focus(), 50);
+}
+
+function onManualAddSearch(){
+  const cat = MMA.cat;
+  const q = document.getElementById('mma-search').value.trim().toLowerCase();
+  const dd = document.getElementById('mma-dropdown');
+  const pool = S.rawData[cat] || [];
+  if(pool.length === 0){
+    dd.innerHTML = `<div class="dropdown-item" style="color:var(--r);grid-template-columns:1fr;padding:14px;font-size:12px">
+      ⚠️ ${cat.toUpperCase()} 원본 리스트가 업로드되지 않았습니다.</div>`;
+    return;
+  }
+  if(q.length === 0){
+    dd.innerHTML = `<div class="dropdown-item" style="color:var(--k3);grid-template-columns:1fr">품목코드 또는 품목명으로 검색하세요.</div>`;
+    return;
+  }
+  const sfRawSet = new Set(S.sfItems[cat].map(it => it._raw));
+  const fsRawSet = new Set(S.fsItems[cat].map(it => it._raw));
+  const matches = [];
+  for(let idx=0; idx<pool.length; idx++){
+    const row = pool[idx];
+    const mapped = mapRow(row, cat);
+    const code = (mapped.itemCode||'').toLowerCase();
+    const name = (mapped.itemName||'').toLowerCase();
+    if(code.includes(q) || name.includes(q)){
+      const alreadyHere = (MMA.proc === 'sf' ? sfRawSet.has(row) : fsRawSet.has(row));
+      const crossTaken  = (MMA.proc === 'sf' ? fsRawSet.has(row) : sfRawSet.has(row));
+      matches.push({ row, mapped, poolIdx: idx, alreadyHere, crossTaken });
+      if(matches.length >= 100) break;
+    }
+  }
+  let html = `<div class="dd-header">
+    <span>품목코드</span><span>품목명</span><span>위치</span><span style="text-align:right">장부수량</span><span style="text-align:center">상태</span>
+  </div>`;
+  if(!matches.length){
+    html += `<div class="dropdown-item" style="color:var(--k3);grid-template-columns:1fr">검색 결과 없음</div>`;
+  } else {
+    html += matches.map(mt => {
+      const r = mt.mapped;
+      let badge = `<span style="text-align:center;color:var(--k4);font-size:11px">—</span>`;
+      let cls = '';
+      let clickable = true;
+      if(mt.alreadyHere){
+        badge = `<span class="taken-badge" style="background:var(--k6);color:var(--k3)">이미 추가됨</span>`;
+        cls = 'sf-taken';
+        clickable = false;
+      } else if(mt.crossTaken){
+        badge = `<span class="taken-badge">${MMA.proc==='sf'?'F→S 사용중':'S→F 사용중'}</span>`;
+      }
+      const onclickAttr = clickable ? `onclick="addManualItem(${mt.poolIdx})"` : '';
+      return `<div class="dropdown-item ${cls}" ${onclickAttr} style="${clickable?'':'opacity:.5;cursor:not-allowed'}">
+        <span class="code">${escapeHtml(r.itemCode)}</span>
+        <span class="name" title="${escapeAttr(r.itemName)}">${escapeHtml(r.itemName)}</span>
+        <span class="loc">${escapeHtml(r.location || '-')}</span>
+        <span class="qty">${fmt(r.entityQty)}</span>
+        ${badge}
+      </div>`;
+    }).join('');
+  }
+  dd.innerHTML = html;
+}
+
+async function addManualItem(poolIdx){
+  const cat = MMA.cat;
+  const row = S.rawData[cat][poolIdx];
+  if(!row) return;
+  if(MMA.proc === 'sf'){
+    // Sheet→Floor 수동 추가
+    if(S.sfItems[cat].some(it => it._raw === row)){
+      toast('이미 Sheet→Floor 샘플에 있습니다','error'); return;
+    }
+    showLoading('Sheet→Floor 수동 추가 중...');
+    try{
+      const invIdx = S.rawData[cat].indexOf(row);
+      const invId = S.inventoryIds[cat][invIdx];
+      const m = mapRow(row, cat);
+      const seq = S.sfItems[cat].length;
+      const dbRow = makeSampleDbRow(cat, 'sheet_to_floor', invId, seq, m, { pwc_qty: m.entityQty });
+      const { data: ins, error } = await supa.from('count_samples').insert(dbRow).select('id').single();
+      if(error) throw error;
+      S.sfItems[cat].push({ ...m, _raw: row, _dbId: ins.id, inventory_id: invId, pwcQty: m.entityQty, notes:'', status:'pending', confirmed:false });
+      S.sampleSize[cat] = S.sfItems[cat].length;
+      await supa.from('count_sessions').update({ sample_size_json: S.sampleSize }).eq('id', S.sessionId);
+      renderSF();
+      hideLoading(); toast('수동 추가 완료','success');
+      closeModal('modal-manual-add');
+    }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+  } else {
+    // Floor→Sheet — 기존 addFSItem 재사용
+    try{
+      await addFSItem(cat, poolIdx);
+      closeModal('modal-manual-add');
+    }catch(ex){ toast('실패: '+(ex.message||ex),'error'); }
+  }
+}
+
 </script>
 </body>
 </html>

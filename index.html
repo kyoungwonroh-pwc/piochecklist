@@ -1,0 +1,2502 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>재고실사 — PwC 삼일 v8</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --o:#D04A02;--o2:#A83A01;--o3:#FEF0EA;--o4:#FFF7F4;
+  --k:#1A1A1A;--k2:#3D3D3D;--k3:#6B6B6B;--k4:#9E9E9E;--k5:#E0E0E0;--k6:#F0F0F0;--k7:#F8F8F8;
+  --w:#FFFFFF;
+  --g:#1A7F37;--g2:#EDFBF1;--g3:#D3F4DF;
+  --r:#C0392B;--r2:#FEF2F2;--r3:#FADBD8;
+  --b:#1B4FD8;--b2:#EEF3FF;
+  --y:#B45309;--y2:#FFFBEB;
+  --p:#7C3AED;--p2:#F3E8FF;
+  --f:'DM Sans',system-ui,sans-serif;--fm:'DM Mono',monospace;
+  --rad:10px;--rad2:6px;
+  --sh:0 1px 3px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+  --sh2:0 2px 12px rgba(0,0,0,.12),0 12px 36px rgba(0,0,0,.08);
+  --tr:150ms cubic-bezier(.4,0,.2,1);
+  --nav-h:52px;--snav-h:48px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:var(--k7);color:var(--k);-webkit-font-smoothing:antialiased;min-height:100vh}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+input,select,textarea{font-family:inherit;font-size:14px}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:var(--k5);border-radius:4px}
+
+/* ═══ AUTH PAGE ═══ */
+.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,var(--o4) 0%,#fff 100%)}
+.auth-card{background:#fff;border-radius:14px;box-shadow:var(--sh2);padding:36px;max-width:440px;width:100%}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.auth-brand .mark{width:36px;height:36px;background:var(--o);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px}
+.auth-brand .name{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.auth-brand .sub{font-size:12px;color:var(--k3)}
+.auth-title{font-size:24px;font-weight:800;margin-bottom:6px}
+.auth-desc{font-size:13px;color:var(--k3);margin-bottom:24px;line-height:1.6}
+.auth-field{margin-bottom:14px}
+.auth-label{display:block;font-size:12px;font-weight:600;color:var(--k2);margin-bottom:5px}
+.auth-input{width:100%;padding:11px 14px;border:1px solid var(--k5);border-radius:var(--rad2);font-size:14px;transition:var(--tr)}
+.auth-input:focus{outline:none;border-color:var(--o);box-shadow:0 0 0 3px rgba(208,74,2,0.1)}
+.auth-btn{width:100%;padding:13px;background:var(--o);color:#fff;border-radius:var(--rad2);font-size:14px;font-weight:700;transition:var(--tr);margin-top:10px}
+.auth-btn:hover{background:var(--o2)}
+.auth-btn:disabled{background:var(--k5);color:var(--k4);cursor:not-allowed}
+.auth-switch{text-align:center;margin-top:20px;font-size:13px;color:var(--k3)}
+.auth-switch a{color:var(--o);font-weight:700;cursor:pointer;text-decoration:none}
+.auth-err{background:var(--r2);color:var(--r);border-left:3px solid var(--r);padding:10px 12px;border-radius:4px;font-size:12px;margin-bottom:14px;display:none}
+.auth-err.on{display:block}
+
+/* ═══ NAV ═══ */
+#nav{position:fixed;top:0;left:0;right:0;z-index:300;background:var(--w);border-bottom:2.5px solid var(--o);height:var(--nav-h);display:flex;align-items:center;padding:0 20px;gap:12px}
+.nav-mark{width:30px;height:30px;background:var(--o);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}
+.nav-brand{font-size:15px;font-weight:800;letter-spacing:-.02em}
+.nav-sep{width:1px;height:16px;background:var(--k5)}
+.nav-sub{font-size:12px;color:var(--k3);font-weight:500}
+.nav-space{flex:1}
+.nav-pill{font-size:11px;font-weight:700;color:var(--o);background:var(--o3);padding:5px 12px;border-radius:20px}
+.nav-user{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:20px;background:var(--k7);font-size:12px;font-weight:600}
+.nav-user .role-badge{font-size:10px;padding:1px 6px;border-radius:3px;background:var(--b2);color:var(--b)}
+.nav-user .role-badge.admin{background:var(--p2);color:var(--p)}
+.nav-btn{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;background:var(--w);border:1px solid var(--k5);color:var(--k2)}
+.nav-btn:hover{background:var(--k7)}
+
+#snav{position:fixed;top:var(--nav-h);left:0;right:0;z-index:290;background:var(--w);border-bottom:1px solid var(--k5);height:var(--snav-h);display:flex;overflow-x:auto;padding:0 12px}
+#snav::-webkit-scrollbar{display:none}
+.sn{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 16px;height:100%;cursor:pointer;border-bottom:3px solid transparent;transition:var(--tr);color:var(--k3);font-size:13px;font-weight:600;white-space:nowrap}
+.sn:hover{color:var(--k)}
+.sn.active{color:var(--o);border-bottom-color:var(--o)}
+.sn.done{color:var(--g)}
+.sn-num{width:22px;height:22px;border-radius:50%;background:var(--k6);color:var(--k3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.sn.active .sn-num{background:var(--o);color:#fff}
+.sn.done .sn-num{background:var(--g);color:#fff}
+
+main{padding:calc(var(--nav-h) + var(--snav-h) + 20px) 20px 60px;max-width:1400px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.step{display:none}.step.active{display:block}
+.step-title{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.step-desc{font-size:14px;color:var(--k3);margin-bottom:24px;line-height:1.6}
+
+.card{background:var(--w);border:1px solid var(--k5);border-radius:var(--rad);padding:20px;margin-bottom:16px;box-shadow:var(--sh)}
+.card-title{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.card-title .ct-left{display:flex;align-items:center;gap:8px}
+.card-title .tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px}
+.tag-rm{background:var(--b2);color:var(--b)}
+.tag-wip{background:var(--y2);color:var(--y)}
+.tag-fg{background:var(--g2);color:var(--g)}
+.tag-tpl{background:var(--p2);color:var(--p)}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:var(--rad2);font-size:14px;font-weight:600;transition:var(--tr)}
+.btn-p{background:var(--o);color:#fff}.btn-p:hover{background:var(--o2)}
+.btn-p:disabled{background:var(--k5);color:var(--k4);cursor:not-allowed}
+.btn-s{background:var(--w);color:var(--k);border:1px solid var(--k5)}.btn-s:hover{background:var(--k7)}
+.btn-g{background:var(--g);color:#fff}.btn-g:hover{filter:brightness(.95)}
+.btn-r{background:var(--r);color:#fff}.btn-r:hover{filter:brightness(.95)}
+.btn-b{background:var(--b);color:#fff}.btn-b:hover{filter:brightness(.9)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-xs{padding:4px 10px;font-size:11px;border-radius:4px}
+.btn-confirm{background:var(--b);color:#fff;padding:6px 14px;font-size:12px;border-radius:4px;font-weight:700}
+.btn-confirm:hover{filter:brightness(.9)}
+.btn-confirm.done{background:var(--g)}
+.btn-del{background:var(--r2);color:var(--r);border:1px solid var(--r3);padding:4px 8px;font-size:11px;border-radius:4px;font-weight:600}
+.btn-del:hover{background:var(--r);color:#fff}
+
+.upload-box{border:2px dashed var(--k5);border-radius:var(--rad);padding:28px 20px;text-align:center;transition:var(--tr);cursor:pointer;background:var(--k7)}
+.upload-box:hover{border-color:var(--o);background:var(--o4)}
+.upload-box.has-file{border-color:var(--g);background:var(--g2);border-style:solid}
+.upload-box.has-file .ub-icon{color:var(--g)}
+.ub-icon{font-size:32px;color:var(--k4);margin-bottom:8px}
+.ub-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.ub-desc{font-size:12px;color:var(--k3)}
+.ub-file{font-size:12px;color:var(--g);font-weight:600;margin-top:6px;word-break:break-all}
+
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:900px){.grid-3,.grid-2{grid-template-columns:1fr}}
+.grid-col{display:flex;flex-direction:column;gap:14px}
+
+.row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.label{font-size:13px;font-weight:600;color:var(--k2);min-width:120px}
+.input,.select{padding:8px 12px;border:1px solid var(--k5);border-radius:var(--rad2);background:var(--w);min-width:180px}
+.input:focus,.select:focus{outline:none;border-color:var(--o)}
+.num-input{width:90px;text-align:right;padding:6px 8px;border:1px solid var(--k5);border-radius:var(--rad2);font-family:var(--fm)}
+.num-input.modified{border-color:var(--o);background:var(--o4)}
+
+table{width:100%;border-collapse:collapse;background:var(--w);font-size:13px}
+th{background:var(--k7);padding:10px 8px;text-align:left;font-weight:700;color:var(--k2);border-bottom:2px solid var(--k5);position:sticky;top:0;white-space:nowrap;font-size:12px;z-index:2}
+td{padding:8px;border-bottom:1px solid var(--k6);vertical-align:middle}
+tr:hover{background:var(--o4)}
+.table-wrap{overflow:auto;max-height:600px;border:1px solid var(--k5);border-radius:var(--rad)}
+
+.status{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:12px;white-space:nowrap}
+.st-pending{background:var(--k6);color:var(--k3)}
+.st-match{background:var(--g2);color:var(--g)}
+.st-diff{background:var(--r2);color:var(--r)}
+.st-active{background:var(--b2);color:var(--b)}
+.st-inactive{background:var(--k6);color:var(--k3)}
+.st-inprog{background:var(--y2);color:var(--y)}
+.st-done{background:var(--g2);color:var(--g)}
+
+.mapping-row{display:grid;grid-template-columns:1fr 40px 1fr 80px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--k6)}
+.mapping-row:last-child{border-bottom:none}
+.mapping-arrow{text-align:center;color:var(--o);font-weight:700}
+.mapping-label{font-size:13px;font-weight:600;color:var(--k2)}
+.ai-suggest{font-size:10px;background:var(--p2);color:var(--p);padding:2px 6px;border-radius:3px;font-weight:700;cursor:pointer;text-align:center}
+.ai-suggest:hover{background:var(--p);color:#fff}
+
+.footer-nav{display:flex;justify-content:space-between;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid var(--k5);flex-wrap:wrap}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.stat{background:var(--w);border:1px solid var(--k5);border-radius:var(--rad);padding:14px;text-align:center}
+.stat-label{font-size:11px;color:var(--k3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.stat-value{font-size:22px;font-weight:800;color:var(--k)}
+.stat-value.p{color:var(--o)}.stat-value.g{color:var(--g)}.stat-value.r{color:var(--r)}.stat-value.b{color:var(--b)}
+
+.search-box{position:relative;width:100%;max-width:600px}
+.search-box input{width:100%;padding:10px 14px;border:1px solid var(--k5);border-radius:var(--rad2);font-size:14px}
+.search-box input:focus{outline:none;border-color:var(--o)}
+
+.dropdown{position:relative;max-width:820px}
+.dropdown-list{position:absolute;top:100%;left:0;right:0;background:var(--w);border:1px solid var(--k5);border-radius:var(--rad2);box-shadow:var(--sh2);max-height:420px;overflow:auto;z-index:50;display:none;margin-top:4px}
+.dropdown-list.open{display:block}
+.dd-header{display:grid;grid-template-columns:170px 1fr 110px 100px 130px;gap:10px;padding:10px 14px;background:var(--k7);border-bottom:2px solid var(--k5);font-size:11px;font-weight:800;color:var(--k2);letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0}
+.dropdown-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--k6);font-size:13px;display:grid;grid-template-columns:170px 1fr 110px 100px 130px;gap:10px;align-items:center}
+.dropdown-item:hover{background:var(--o3)}
+.dropdown-item:last-child{border-bottom:none}
+.dropdown-item.sf-taken{background:var(--p2)}.dropdown-item.sf-taken:hover{background:#E9D5FF}
+.dropdown-item .code{font-family:var(--fm);font-weight:600;color:var(--o);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dropdown-item .name{color:var(--k2);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dropdown-item .loc{font-size:11px;color:var(--k3);background:var(--k6);padding:2px 8px;border-radius:3px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dropdown-item .qty{font-family:var(--fm);font-size:12px;color:var(--k2);text-align:right;font-weight:600}
+.dropdown-item .taken-badge{font-size:10px;font-weight:700;background:var(--p);color:#fff;padding:2px 6px;border-radius:3px;white-space:nowrap;text-align:center}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--k5);margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;color:var(--k3);cursor:pointer;border-bottom:2.5px solid transparent;transition:var(--tr)}
+.tab:hover{color:var(--k)}
+.tab.active{color:var(--o);border-bottom-color:var(--o)}
+
+.toast{position:fixed;top:80px;right:20px;background:var(--k);color:#fff;padding:12px 18px;border-radius:var(--rad2);box-shadow:var(--sh2);font-size:13px;font-weight:600;z-index:2000;opacity:0;transform:translateY(-10px);transition:var(--tr);max-width:360px}
+.toast.on{opacity:1;transform:translateY(0)}
+.toast.success{background:var(--g)}.toast.error{background:var(--r)}.toast.warn{background:var(--y)}
+
+.alert{padding:12px 16px;border-radius:var(--rad2);font-size:13px;margin-bottom:16px;border-left:4px solid;line-height:1.5}
+.alert-info{background:var(--b2);color:var(--b);border-color:var(--b)}
+.alert-warn{background:var(--y2);color:var(--y);border-color:var(--y)}
+.alert-success{background:var(--g2);color:var(--g);border-color:var(--g)}
+.alert-purple{background:var(--p2);color:var(--p);border-color:var(--p)}
+
+.diff-input{width:100%;padding:6px 8px;border:1px solid var(--k5);border-radius:4px;font-size:12px;min-height:32px}
+.diff-input:focus{outline:none;border-color:var(--o)}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.on{display:flex}
+.modal{background:#fff;border-radius:var(--rad);padding:24px;max-width:520px;width:100%;box-shadow:var(--sh2);max-height:90vh;overflow:auto}
+.modal-title{font-size:16px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.modal-body{font-size:14px;color:var(--k2);line-height:1.6;margin-bottom:20px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px}
+
+.result-section{background:var(--w);border:1px solid var(--k5);border-radius:var(--rad);padding:20px;margin-bottom:16px;box-shadow:var(--sh)}
+.result-sec-title{font-size:14px;font-weight:800;padding:8px 14px;border-radius:6px;margin-bottom:14px;display:inline-block}
+.result-sec-title.sf{background:var(--o3);color:var(--o)}
+.result-sec-title.fs{background:var(--b2);color:var(--b)}
+.result-cat-row{display:grid;grid-template-columns:140px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--k6);align-items:center}
+.result-cat-row:last-child{border-bottom:none}
+.result-cat-label{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.result-cat-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mini-stat{background:var(--k7);border-radius:6px;padding:8px 10px;text-align:center}
+.mini-stat-label{font-size:10px;color:var(--k3);font-weight:600;text-transform:uppercase;margin-bottom:2px}
+.mini-stat-value{font-size:18px;font-weight:800}
+.mini-stat-value.g{color:var(--g)}.mini-stat-value.r{color:var(--r)}.mini-stat-value.k{color:var(--k3)}.mini-stat-value.p{color:var(--o)}.mini-stat-value.b{color:var(--b)}
+
+/* Dashboard */
+.dash-session-card{background:#fff;border:1px solid var(--k5);border-radius:var(--rad);padding:16px 18px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;transition:var(--tr)}
+.dash-session-card:hover{border-color:var(--o);box-shadow:var(--sh2)}
+.dash-s-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.dash-s-meta{font-size:12px;color:var(--k3);display:flex;gap:10px;flex-wrap:wrap}
+.dash-s-btns{display:flex;gap:6px}
+
+/* Admin */
+.admin-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--k5)}
+.admin-tab{padding:10px 18px;font-size:13px;font-weight:600;color:var(--k3);cursor:pointer;border-bottom:2.5px solid transparent}
+.admin-tab.active{color:var(--o);border-bottom-color:var(--o)}
+.admin-panel{display:none}.admin-panel.active{display:block}
+
+/* Loading */
+.loading{position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:2500;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading.on{display:flex}
+.spinner{width:48px;height:48px;border:4px solid var(--k5);border-top-color:var(--o);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-size:14px;font-weight:600;color:var(--k2)}
+
+.badge-cat{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-right:4px}
+.empty-state{text-align:center;padding:40px 20px;color:var(--k3)}
+.empty-state .icon{font-size:48px;margin-bottom:10px;opacity:.5}
+.empty-state .title{font-size:15px;font-weight:700;color:var(--k2);margin-bottom:6px}
+.empty-state .desc{font-size:13px}
+
+.chart-wrap{position:relative;height:260px}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN PAGE ═══ -->
+<div class="page auth-page active" id="page-login">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="mark">PwC</div>
+      <div><div class="name">재고실사</div><div class="sub">Inventory Count · 삼일</div></div>
+    </div>
+    <div class="auth-title">로그인</div>
+    <div class="auth-desc">사내 계정으로 로그인하세요. 관리자는 ID <strong>admin</strong>으로 로그인합니다.</div>
+    <div class="auth-err" id="login-err"></div>
+    <form onsubmit="handleLogin(event)">
+      <div class="auth-field">
+        <label class="auth-label">로그인 ID</label>
+        <input type="text" class="auth-input" id="li-id" required autocomplete="username" placeholder="예: hong.gildong">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">비밀번호</label>
+        <input type="password" class="auth-input" id="li-pw" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="auth-btn" id="li-btn">로그인</button>
+    </form>
+    <div class="auth-switch">계정이 없으신가요? <a onclick="showPage('signup')">회원가입</a></div>
+  </div>
+</div>
+
+<!-- ═══ SIGNUP PAGE ═══ -->
+<div class="page auth-page" id="page-signup">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="mark">PwC</div>
+      <div><div class="name">재고실사</div><div class="sub">회원가입</div></div>
+    </div>
+    <div class="auth-title">계정 만들기</div>
+    <div class="auth-desc">이름 · ID · 비밀번호 · 사내메일 4가지만 입력하면 됩니다.</div>
+    <div class="auth-err" id="su-err"></div>
+    <form onsubmit="handleSignup(event)">
+      <div class="auth-field">
+        <label class="auth-label">이름</label>
+        <input type="text" class="auth-input" id="su-name" required placeholder="홍길동">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">로그인 ID (영문/숫자)</label>
+        <input type="text" class="auth-input" id="su-id" required pattern="[a-zA-Z0-9._-]{3,}" title="3자 이상 영문/숫자/._-" placeholder="hong.gildong">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">비밀번호 (6자 이상)</label>
+        <input type="password" class="auth-input" id="su-pw" required minlength="6">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">사내 이메일</label>
+        <input type="email" class="auth-input" id="su-email" required placeholder="name@company.com">
+      </div>
+      <button type="submit" class="auth-btn" id="su-btn">가입하기</button>
+    </form>
+    <div class="auth-switch">이미 계정이 있으신가요? <a onclick="showPage('login')">로그인</a></div>
+  </div>
+</div>
+
+<!-- ═══ NAV (in-app) ═══ -->
+<nav id="nav" style="display:none">
+  <div class="nav-mark">PwC</div>
+  <div class="nav-brand">재고실사</div>
+  <div class="nav-sep"></div>
+  <div class="nav-sub" id="nav-sub">Dashboard</div>
+  <div class="nav-space"></div>
+  <div class="nav-pill" id="nav-pill" style="display:none">단계 1 / 6</div>
+  <div class="nav-user" id="nav-user">
+    <span id="nav-user-name">—</span>
+    <span class="role-badge" id="nav-user-role">user</span>
+  </div>
+  <button class="nav-btn" id="btn-dashboard" onclick="goDashboard()">🏠 대시보드</button>
+  <button class="nav-btn" id="btn-admin" onclick="showPage('admin')" style="display:none">⚙️ 관리자</button>
+  <button class="nav-btn" onclick="handleLogout()">로그아웃</button>
+</nav>
+
+<nav id="snav" style="display:none">
+  <div class="sn active" data-step="0"><div class="sn-num">1</div><span>파일 업로드</span></div>
+  <div class="sn" data-step="1"><div class="sn-num">2</div><span>헤더 매핑</span></div>
+  <div class="sn" data-step="2"><div class="sn-num">3</div><span>샘플링 설정</span></div>
+  <div class="sn" data-step="3"><div class="sn-num">4</div><span>Sheet → Floor</span></div>
+  <div class="sn" data-step="4"><div class="sn-num">5</div><span>Floor → Sheet</span></div>
+  <div class="sn" data-step="5"><div class="sn-num">6</div><span>결과 & 다운로드</span></div>
+</nav>
+
+<!-- ═══ DASHBOARD PAGE ═══ -->
+<div class="page" id="page-dashboard">
+  <main>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h1 class="step-title">환영합니다, <span id="dash-user-name">—</span>님 👋</h1>
+        <p class="step-desc" style="margin-bottom:0">진행중인 재고실사 세션을 이어서 작업하거나, 새로 시작하세요.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-s" onclick="openTemplatePicker()">📋 세션 템플릿으로 시작</button>
+        <button class="btn btn-p" onclick="openNewSessionModal()">➕ 새 세션 시작</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="ct-left">📊 나의 실사 통계</div></div>
+      <div class="stat-grid" id="dash-stats"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="ct-left">📁 나의 세션 목록</div>
+        <select class="select" id="dash-filter" onchange="loadDashSessions()">
+          <option value="all">전체</option>
+          <option value="in_progress">진행중</option>
+          <option value="completed">완료</option>
+          <option value="archived">보관</option>
+        </select>
+      </div>
+      <div id="dash-sessions"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══ MAIN APP PAGE (v7 Steps) ═══ -->
+<div class="page" id="page-app">
+<main>
+
+<!-- STEP 0 -->
+<section class="step active" id="step-0">
+  <h1 class="step-title">1. 파일 업로드</h1>
+  <p class="step-desc">실사 리스트 (RM/WIP/FG) 및 PIO 템플릿을 업로드합니다. <strong>공용 템플릿</strong>이 등록되어 있으면 자동 선택됩니다.</p>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><div class="ct-left"><span class="tag tag-rm">RM</span>원재료</div></div>
+      <div class="upload-box" id="up-rm" onclick="document.getElementById('f-rm').click()">
+        <div class="ub-icon">📄</div><div class="ub-title">원재료 실사 리스트</div>
+        <div class="ub-desc">.xls / .xlsx</div><div class="ub-file" id="fn-rm"></div>
+      </div>
+      <input type="file" id="f-rm" accept=".xls,.xlsx" style="display:none" onchange="loadFile(event,'rm')">
+    </div>
+    <div class="card">
+      <div class="card-title"><div class="ct-left"><span class="tag tag-wip">WIP</span>재공품</div></div>
+      <div class="upload-box" id="up-wip" onclick="document.getElementById('f-wip').click()">
+        <div class="ub-icon">📄</div><div class="ub-title">재공품 실사 리스트</div>
+        <div class="ub-desc">.xls / .xlsx</div><div class="ub-file" id="fn-wip"></div>
+      </div>
+      <input type="file" id="f-wip" accept=".xls,.xlsx" style="display:none" onchange="loadFile(event,'wip')">
+    </div>
+    <div class="card">
+      <div class="card-title"><div class="ct-left"><span class="tag tag-fg">FG</span>제품</div></div>
+      <div class="upload-box" id="up-fg" onclick="document.getElementById('f-fg').click()">
+        <div class="ub-icon">📄</div><div class="ub-title">제품 실사 리스트</div>
+        <div class="ub-desc">.xls / .xlsx</div><div class="ub-file" id="fn-fg"></div>
+      </div>
+      <input type="file" id="f-fg" accept=".xls,.xlsx" style="display:none" onchange="loadFile(event,'fg')">
+    </div>
+  </div>
+
+  <div class="card" style="border:2px solid var(--p);background:var(--p2)">
+    <div class="card-title">
+      <div class="ct-left"><span class="tag tag-tpl">TEMPLATE</span>PIO Inventory Count Template</div>
+      <div id="tpl-shared-area" style="font-size:12px"></div>
+    </div>
+    <div class="alert alert-purple" id="tpl-shared-info" style="margin-bottom:12px;display:none"></div>
+    <div class="alert alert-purple" style="margin-bottom:12px">
+      📌 공용 템플릿이 있으면 자동으로 선택되며, 없으면 직접 업로드합니다. (관리자만 공용 템플릿 등록 가능)
+    </div>
+    <div class="upload-box" id="up-tpl" onclick="document.getElementById('f-tpl').click()" style="background:#fff">
+      <div class="ub-icon">📋</div><div class="ub-title">PIO 템플릿 파일</div>
+      <div class="ub-desc">.xlsx 파일</div><div class="ub-file" id="fn-tpl"></div>
+    </div>
+    <input type="file" id="f-tpl" accept=".xlsx" style="display:none" onchange="loadTemplate(event)">
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="ct-left">📋 업로드 현황</div></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">원재료 (유효)</div><div class="stat-value p" id="cnt-rm">0</div></div>
+      <div class="stat"><div class="stat-label">재공품 (유효)</div><div class="stat-value p" id="cnt-wip">0</div></div>
+      <div class="stat"><div class="stat-label">제품 (유효)</div><div class="stat-value p" id="cnt-fg">0</div></div>
+      <div class="stat"><div class="stat-label">PIO 템플릿</div><div class="stat-value" id="cnt-tpl" style="color:var(--p)">—</div></div>
+    </div>
+  </div>
+  <div class="footer-nav">
+    <button class="btn btn-s" onclick="goDashboard()">← 대시보드</button>
+    <button class="btn btn-p" id="btn-next-0" onclick="saveStep0AndNext()" disabled>다음: 헤더 매핑 →</button>
+  </div>
+</section>
+
+<!-- STEP 1 -->
+<section class="step" id="step-1">
+  <h1 class="step-title">2. 헤더 매핑</h1>
+  <p class="step-desc">실사 리스트 컬럼을 PIO 템플릿 필드와 연결합니다. <span style="color:var(--p);font-weight:700">🤖 AI 제안</span> 버튼으로 과거 매핑 학습값을 적용할 수 있습니다.</p>
+  <div class="tabs">
+    <div class="tab active" data-cat="rm" onclick="switchMapTab('rm')">RM 원재료</div>
+    <div class="tab" data-cat="wip" onclick="switchMapTab('wip')">WIP 재공품</div>
+    <div class="tab" data-cat="fg" onclick="switchMapTab('fg')">FG 제품</div>
+  </div>
+  <div class="card">
+    <div class="card-title">
+      <div class="ct-left">PIO Template 필드 ← 실사리스트 컬럼</div>
+      <button class="btn btn-s btn-sm" onclick="applyAIMapping()">🤖 AI 매핑 적용</button>
+    </div>
+    <div class="alert alert-info">💡 <strong>장부수량</strong>은 반드시 매핑하세요. 저장된 매핑은 다음 실사에서 자동 추천됩니다.</div>
+    <div id="mapping-body"></div>
+  </div>
+  <div class="footer-nav">
+    <button class="btn btn-s" onclick="goStep(0)">← 이전</button>
+    <button class="btn btn-p" onclick="saveStep1AndNext()">다음: 샘플링 설정 →</button>
+  </div>
+</section>
+
+<!-- STEP 2 -->
+<section class="step" id="step-2">
+  <h1 class="step-title">3. Sheet → Floor 샘플링 설정</h1>
+  <p class="step-desc">각 재고자산별 샘플 건수를 설정하고 개별 샘플링 버튼을 눌러 랜덤 추출하세요.</p>
+  <div class="grid-col">
+    <div class="card">
+      <div class="card-title"><div class="ct-left"><span class="tag tag-rm">RM</span>원재료</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:center">
+        <div><div class="label">유효 건수</div><div id="pool-rm" style="font-weight:700;font-size:16px">0</div></div>
+        <div><div class="label">샘플 개수</div><input type="number" class="num-input" id="smp-rm" min="0" value="0" style="width:120px"></div>
+        <div style="text-align:right"><button class="btn btn-p btn-sm" onclick="sampleOne('rm')">🎲 원재료 샘플링</button></div>
+      </div>
+      <div id="smp-rm-status" style="font-size:12px;color:var(--g);font-weight:600;margin-top:8px;display:none">✓</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><div class="ct-left"><span class="tag tag-wip">WIP</span>재공품</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:center">
+        <div><div class="label">유효 건수</div><div id="pool-wip" style="font-weight:700;font-size:16px">0</div></div>
+        <div><div class="label">샘플 개수</div><input type="number" class="num-input" id="smp-wip" min="0" value="0" style="width:120px"></div>
+        <div style="text-align:right"><button class="btn btn-p btn-sm" onclick="sampleOne('wip')">🎲 재공품 샘플링</button></div>
+      </div>
+      <div id="smp-wip-status" style="font-size:12px;color:var(--g);font-weight:600;margin-top:8px;display:none">✓</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><div class="ct-left"><span class="tag tag-fg">FG</span>제품</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:center">
+        <div><div class="label">유효 건수</div><div id="pool-fg" style="font-weight:700;font-size:16px">0</div></div>
+        <div><div class="label">샘플 개수</div><input type="number" class="num-input" id="smp-fg" min="0" value="0" style="width:120px"></div>
+        <div style="text-align:right"><button class="btn btn-p btn-sm" onclick="sampleOne('fg')">🎲 제품 샘플링</button></div>
+      </div>
+      <div id="smp-fg-status" style="font-size:12px;color:var(--g);font-weight:600;margin-top:8px;display:none">✓</div>
+    </div>
+  </div>
+  <div class="alert alert-warn" style="margin-top:16px">⚠️ 재샘플링 시 기존 샘플과 입력값이 초기화됩니다. (DB에서도 삭제)</div>
+  <div class="footer-nav">
+    <button class="btn btn-s" onclick="goStep(1)">← 이전</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p" onclick="runAllSampling()">🎲 전체 샘플링</button>
+      <button class="btn btn-g" id="btn-next-2" onclick="saveStep2AndNext()" disabled>다음: Sheet → Floor →</button>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 3 -->
+<section class="step" id="step-3">
+  <h1 class="step-title">4. Sheet → Floor 실사 <span style="font-size:13px;color:var(--k3);font-weight:500">(📱 모바일에서도 동일)</span></h1>
+  <p class="step-desc">샘플된 품목을 현장에서 확인합니다. 확인 즉시 DB에 저장되어 <strong>다른 기기에서도 실시간 동기화</strong>됩니다.</p>
+  <div class="tabs">
+    <div class="tab active" data-cat="rm" onclick="switchSFTab('rm')">RM 원재료 (<span id="sft-rm-n">0</span>)</div>
+    <div class="tab" data-cat="wip" onclick="switchSFTab('wip')">WIP 재공품 (<span id="sft-wip-n">0</span>)</div>
+    <div class="tab" data-cat="fg" onclick="switchSFTab('fg')">FG 제품 (<span id="sft-fg-n">0</span>)</div>
+  </div>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;flex-wrap:wrap;gap:10px">
+    <div style="font-size:13px;color:var(--k3)">현재 <strong id="sf-cur-n" style="color:var(--o)">0</strong> 건. 추가 샘플링:</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="number" class="num-input" id="sf-add-n" min="1" value="1" style="width:80px">
+      <button class="btn btn-p btn-sm" onclick="addMoreSamples()">➕ 샘플 추가</button>
+    </div>
+  </div>
+  <div class="stat-grid" style="margin-bottom:16px">
+    <div class="stat"><div class="stat-label">전체 샘플</div><div class="stat-value" id="sf-total">0</div></div>
+    <div class="stat"><div class="stat-label">확인 완료</div><div class="stat-value g" id="sf-done">0</div></div>
+    <div class="stat"><div class="stat-label">일치</div><div class="stat-value g" id="sf-match">0</div></div>
+    <div class="stat"><div class="stat-label">불일치</div><div class="stat-value r" id="sf-diff">0</div></div>
+    <div class="stat"><div class="stat-label">미확인</div><div class="stat-value" id="sf-pending">0</div></div>
+  </div>
+  <div class="table-wrap">
+    <table id="sf-table">
+      <thead><tr>
+        <th>No.</th><th>품목코드</th><th>품목명</th><th>규격</th><th>단위</th><th>위치</th>
+        <th>장부수량</th><th>PwC 실사수량</th><th>확인</th><th>차이</th><th>상태</th><th>차이 사유 / 비고</th><th>Re-sample</th><th>삭제</th>
+      </tr></thead>
+      <tbody id="sf-body"></tbody>
+    </table>
+  </div>
+  <div class="footer-nav">
+    <button class="btn btn-s" onclick="goStep(2)">← 이전</button>
+    <button class="btn btn-p" onclick="goStep(4)">다음: Floor → Sheet →</button>
+  </div>
+</section>
+
+<!-- STEP 4 -->
+<section class="step" id="step-4">
+  <h1 class="step-title">5. Floor → Sheet 실사 <span style="font-size:13px;color:var(--k3);font-weight:500">(📱 모바일에서도 동일)</span></h1>
+  <p class="step-desc">현장에서 품목코드/품목명으로 검색하여 리스트 등재 여부를 확인합니다.</p>
+  <div class="tabs">
+    <div class="tab active" data-cat="rm" onclick="switchFSTab('rm')">RM 원재료 (<span id="fs-rm-n">0</span> / <span id="fs-rm-t">0</span>)</div>
+    <div class="tab" data-cat="wip" onclick="switchFSTab('wip')">WIP 재공품 (<span id="fs-wip-n">0</span> / <span id="fs-wip-t">0</span>)</div>
+    <div class="tab" data-cat="fg" onclick="switchFSTab('fg')">FG 제품 (<span id="fs-fg-n">0</span> / <span id="fs-fg-t">0</span>)</div>
+  </div>
+  <div class="card">
+    <div class="dropdown">
+      <div class="search-box">
+        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()">
+      </div>
+      <div class="dropdown-list" id="fs-dropdown"></div>
+    </div>
+    <div style="font-size:12px;color:var(--k3);margin-top:10px;line-height:1.6">
+      💡 같은 품목코드라도 로케이션/수량이 다르면 각각 추가 가능.
+      <span style="background:var(--p2);color:var(--p);padding:2px 6px;border-radius:3px;font-weight:700">보라색</span>은 S→F 샘플과 중복.
+      남은 개수: <strong id="fs-remain" style="color:var(--o)">0</strong>
+    </div>
+  </div>
+  <div class="stat-grid" style="margin-bottom:16px">
+    <div class="stat"><div class="stat-label">목표 건수</div><div class="stat-value" id="fs-target">0</div></div>
+    <div class="stat"><div class="stat-label">선택 완료</div><div class="stat-value p" id="fs-selected">0</div></div>
+    <div class="stat"><div class="stat-label">일치</div><div class="stat-value g" id="fs-match">0</div></div>
+    <div class="stat"><div class="stat-label">불일치</div><div class="stat-value r" id="fs-diff">0</div></div>
+  </div>
+  <div class="table-wrap">
+    <table id="fs-table">
+      <thead><tr>
+        <th>No.</th><th>품목코드</th><th>품목명</th><th>규격</th><th>단위</th><th>위치</th>
+        <th>장부수량</th><th>PwC 실사수량</th><th>확인</th><th>차이</th><th>상태</th><th>차이 사유 / 비고</th><th>삭제</th>
+      </tr></thead>
+      <tbody id="fs-body"></tbody>
+    </table>
+  </div>
+  <div class="footer-nav">
+    <button class="btn btn-s" onclick="goStep(3)">← 이전</button>
+    <button class="btn btn-p" onclick="goStep(5)">다음: 결과 & 다운로드 →</button>
+  </div>
+</section>
+
+<!-- STEP 5 -->
+<section class="step" id="step-5">
+  <h1 class="step-title">6. 실사 결과 & 다운로드</h1>
+  <p class="step-desc">PIO 템플릿의 원본 서식이 유지된 엑셀을 생성합니다.</p>
+  <div class="result-section">
+    <div class="result-sec-title sf">📘 Sheet → Floor</div>
+    <div id="rs-sf-by-cat"></div>
+  </div>
+  <div class="result-section">
+    <div class="result-sec-title fs">📗 Floor → Sheet</div>
+    <div id="rs-fs-by-cat"></div>
+  </div>
+  <div class="card">
+    <div class="card-title"><div class="ct-left">📥 최종 산출물 다운로드</div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-g" onclick="downloadPioTemplate()" id="btn-dl-pio">📥 PIO 템플릿 다운로드</button>
+      <button class="btn btn-s" onclick="downloadRaw()">📄 전체 Raw Data 다운로드</button>
+      <button class="btn btn-r" onclick="downloadDiffRaw()">⚠️ 불일치 Raw Data 다운로드</button>
+      <button class="btn btn-b" onclick="openSaveAsTemplateModal()">⭐ 세션 템플릿으로 저장 (E-2)</button>
+      <button class="btn btn-s" onclick="markSessionComplete()">✅ 세션 완료 처리</button>
+    </div>
+    <div id="dl-warn" style="font-size:12px;color:var(--r);margin-top:10px;display:none">⚠️ PIO 템플릿 파일이 업로드되지 않았습니다.</div>
+  </div>
+  <div class="footer-nav">
+    <button class="btn btn-s" onclick="goStep(4)">← 이전</button>
+    <button class="btn btn-s" onclick="goDashboard()">🏠 대시보드로</button>
+  </div>
+</section>
+
+</main>
+</div>
+
+<!-- ═══ ADMIN PAGE ═══ -->
+<div class="page" id="page-admin">
+  <main>
+    <h1 class="step-title">⚙️ 관리자 페이지</h1>
+    <p class="step-desc">사용자/세션/템플릿/로그를 관리합니다.</p>
+    <div class="admin-tabs">
+      <div class="admin-tab active" onclick="switchAdminTab('users')">👥 사용자</div>
+      <div class="admin-tab" onclick="switchAdminTab('stats')">📊 통계 대시보드</div>
+      <div class="admin-tab" onclick="switchAdminTab('templates')">📋 공용 템플릿</div>
+      <div class="admin-tab" onclick="switchAdminTab('sessionTpls')">⭐ 세션 템플릿</div>
+      <div class="admin-tab" onclick="switchAdminTab('logs')">📜 감사 로그</div>
+    </div>
+
+    <div class="admin-panel active" id="panel-users">
+      <div class="card">
+        <div class="card-title">
+          <div class="ct-left">👥 사용자 목록</div>
+          <input type="text" class="input" id="adm-user-search" placeholder="이름/ID/이메일 검색..." oninput="renderAdminUsers()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>이름</th><th>ID</th><th>이메일</th><th>권한</th><th>상태</th><th>가입일</th><th>마지막 로그인</th><th>작업</th></tr></thead>
+            <tbody id="adm-users-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="panel-stats">
+      <div class="grid-2">
+        <div class="card"><div class="card-title"><div class="ct-left">사용자별 세션 수</div></div><div class="chart-wrap"><canvas id="chart-sessions"></canvas></div></div>
+        <div class="card"><div class="card-title"><div class="ct-left">실사 결과 분포</div></div><div class="chart-wrap"><canvas id="chart-results"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="ct-left">📋 사용자별 상세</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>사용자</th><th>총 세션</th><th>완료</th><th>실사 건수</th><th>일치</th><th>불일치</th><th>미확인</th></tr></thead>
+            <tbody id="adm-stats-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="panel-templates">
+      <div class="card">
+        <div class="card-title"><div class="ct-left">📋 전사 공용 템플릿 관리 (A-1)</div></div>
+        <div class="alert alert-info">💡 관리자가 업로드한 공용 템플릿은 <strong>모든 사용자</strong>의 Step 1에서 자동으로 선택됩니다. 여러 개 올려두면 가장 최근 것이 기본값.</div>
+        <div class="upload-box" onclick="document.getElementById('f-adm-tpl').click()">
+          <div class="ub-icon">📋</div>
+          <div class="ub-title">공용 PIO 템플릿 업로드</div>
+          <div class="ub-desc">.xlsx 파일</div>
+        </div>
+        <input type="file" id="f-adm-tpl" accept=".xlsx" style="display:none" onchange="adminUploadTemplate(event)">
+        <div style="margin-top:16px">
+          <h3 style="font-size:13px;font-weight:700;margin-bottom:10px">현재 공용 템플릿</h3>
+          <div id="adm-tpl-list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="ct-left">🗺️ 템플릿 셀 매핑 스키마 (B-2)</div></div>
+        <div class="alert alert-info">💡 각 공용 템플릿에 대해 시트별 데이터 시작행/컬럼 매핑을 저장하면, 다음부터 자동 감지 없이 확정적으로 정확한 위치에 데이터가 삽입됩니다.</div>
+        <div id="adm-schema-editor"><div class="empty-state"><div class="desc">공용 템플릿을 먼저 업로드하세요.</div></div></div>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="panel-sessionTpls">
+      <div class="card">
+        <div class="card-title"><div class="ct-left">⭐ 세션 템플릿 관리 (E-2)</div></div>
+        <div class="alert alert-info">💡 자주 쓰는 클라이언트 설정(헤더 매핑/샘플률)을 템플릿화. 사용자가 대시보드에서 원클릭으로 신규 세션을 만들 수 있습니다.</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>이름</th><th>클라이언트</th><th>기본 샘플률</th><th>작성자</th><th>공개</th><th>생성일</th><th>작업</th></tr></thead>
+            <tbody id="adm-stpl-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="panel-logs">
+      <div class="card">
+        <div class="card-title">
+          <div class="ct-left">📜 최근 감사 로그 (C-4)</div>
+          <select class="select" id="adm-log-filter" onchange="renderAdminLogs()">
+            <option value="all">전체 액션</option>
+            <option value="login">로그인</option>
+            <option value="create_session">세션 생성</option>
+            <option value="sample">샘플링</option>
+            <option value="confirm">실사 확인</option>
+            <option value="upload_template">템플릿 업로드</option>
+            <option value="download">다운로드</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>일시</th><th>사용자</th><th>액션</th><th>엔티티</th><th>디바이스</th><th>상세</th></tr></thead>
+            <tbody id="adm-logs-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading"><div class="spinner"></div><div class="loading-txt" id="loading-txt">처리중...</div></div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">⚠️ 알림</div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer"><button class="btn btn-s" onclick="closeModal()">확인</button></div>
+  </div>
+</div>
+
+<!-- New Session Modal -->
+<div class="modal-bg" id="modal-new">
+  <div class="modal">
+    <div class="modal-title">➕ 새 실사 세션 만들기</div>
+    <div class="modal-body">
+      <div class="auth-field">
+        <label class="auth-label">세션 제목</label>
+        <input type="text" class="auth-input" id="ns-title" placeholder="예: 2026 Q1 삼성전자 실사">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">클라이언트명 (선택)</label>
+        <input type="text" class="auth-input" id="ns-client" placeholder="예: 삼성전자">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('modal-new')">취소</button>
+      <button class="btn btn-p" onclick="createNewSession()">시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- Template Picker Modal (E-2) -->
+<div class="modal-bg" id="modal-tplpick">
+  <div class="modal">
+    <div class="modal-title">⭐ 세션 템플릿 선택</div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--k3);margin-bottom:10px">자주 쓰는 설정을 빠르게 적용하여 새 세션을 시작합니다.</div>
+      <div id="tplpick-list" style="max-height:360px;overflow:auto"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-s" onclick="closeModal('modal-tplpick')">닫기</button></div>
+  </div>
+</div>
+
+<!-- Save as Session Template (E-2) -->
+<div class="modal-bg" id="modal-savetpl">
+  <div class="modal">
+    <div class="modal-title">⭐ 세션 템플릿으로 저장</div>
+    <div class="modal-body">
+      <div class="auth-field">
+        <label class="auth-label">템플릿 이름</label>
+        <input type="text" class="auth-input" id="st-name" placeholder="예: 삼성전자 기본 설정">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">설명 (선택)</label>
+        <input type="text" class="auth-input" id="st-desc" placeholder="매핑/샘플률 등 특이사항">
+      </div>
+      <div class="auth-field">
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px">
+          <input type="checkbox" id="st-public" checked> 전사 공개 (모든 사용자가 사용 가능)
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeModal('modal-savetpl')">취소</button>
+      <button class="btn btn-p" onclick="saveAsSessionTemplate()">저장</button>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   ★ SUPABASE 설정 — 여기에 본인 프로젝트 값 입력 ★
+   ════════════════════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://rafqfgwtkniyhiwaubnf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_aOqm2TOAhws802EKvRhVUA_Xr-NoXw7';
+/* ════════════════════════════════════════════════════════════ */
+
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+/* ══════════════════ GLOBAL STATE ══════════════════ */
+const S = {
+  user: null,
+  profile: null,
+  sessionId: null,
+  session: null,
+  files: { rm:null, wip:null, fg:null },
+  rawData: { rm:[], wip:[], fg:[] },
+  inventoryIds: { rm:[], wip:[], fg:[] },
+  headers: { rm:[], wip:[], fg:[] },
+  mapping: { rm:{}, wip:{}, fg:{} },
+  sampleSize: { rm:0, wip:0, fg:0 },
+  sfItems: { rm:[], wip:[], fg:[] },
+  fsItems: { rm:[], wip:[], fg:[] },
+  template: { file:null, buffer:null, storagePath:null, templateFileId:null, sheetNames:[], isShared:false },
+  currentStep: 0,
+  currentMapTab: 'rm',
+  currentSFTab: 'rm',
+  currentFSTab: 'rm',
+  realtimeChannel: null,
+};
+
+const PIO_FIELDS = {
+  common: [
+    { key:'testNo',    label:'Test count 번호',          required:false },
+    { key:'itemCode',  label:'품목코드',                  required:true  },
+    { key:'itemName',  label:'품목명',                    required:true  },
+    { key:'unit',      label:'단위',                      required:false },
+    { key:'location',  label:'위치',                      required:false },
+    { key:'spec',      label:'규격',                      required:false },
+    { key:'tagNo',     label:'Tag/Sheet/ Row 번호',       required:false },
+    { key:'entityQty', label:'장부수량 (Entity Count)',   required:true  }
+  ],
+  wip_extra: [
+    { key:'bomCheck',  label:'BOM 구성요소 존재 여부',    required:false },
+    { key:'compRate',  label:'회사 파악 완성도',           required:false }
+  ]
+};
+const CAT_LABEL = { rm:'원재료', wip:'재공품', fg:'제품' };
+const CAT_TAG   = { rm:'tag-rm', wip:'tag-wip', fg:'tag-fg' };
+const CAT_CODE  = { rm:'RM', wip:'WIP', fg:'FG' };
+const DEVICE_INFO = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'pc';
+
+/* ══════════════════ PAGE ROUTER ══════════════════ */
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const p = document.getElementById('page-'+name); if(p) p.classList.add('active');
+  const showNav = ['dashboard','app','admin'].includes(name);
+  document.getElementById('nav').style.display = showNav ? 'flex' : 'none';
+  document.getElementById('snav').style.display = (name==='app') ? 'flex' : 'none';
+  document.getElementById('nav-pill').style.display = (name==='app') ? 'block' : 'none';
+  document.getElementById('nav-sub').textContent = {login:'', signup:'', dashboard:'Dashboard', app:'재고실사', admin:'관리자'}[name] || '';
+  window.scrollTo(0,0);
+  if(name==='admin') renderAdmin();
+  if(name==='dashboard') renderDashboard();
+}
+
+/* ══════════════════ AUTH ══════════════════ */
+async function handleLogin(e){
+  e.preventDefault();
+  const id = document.getElementById('li-id').value.trim();
+  const pw = document.getElementById('li-pw').value;
+  const err = document.getElementById('login-err');
+  err.classList.remove('on');
+  showLoading('로그인 중...');
+  try{
+    // 1) login_id -> company_email
+    const { data: lookup, error: e1 } = await supa.rpc('get_email_by_login_id', { p_login_id: id });
+    if(e1) throw e1;
+    if(!lookup || !lookup.length){ throw new Error('존재하지 않는 ID입니다'); }
+    if(!lookup[0].is_active){ throw new Error('비활성화된 계정입니다. 관리자에게 문의하세요'); }
+    const email = lookup[0].company_email;
+
+    // 2) login
+    const { data, error } = await supa.auth.signInWithPassword({ email, password: pw });
+    if(error) throw new Error('비밀번호가 틀립니다');
+
+    // 3) profile load
+    await loadProfile();
+    await supa.rpc('touch_last_login');
+    await writeAudit('login', null, null, { login_id: id });
+
+    hideLoading();
+    showPage('dashboard');
+    toast('환영합니다, ' + S.profile.full_name + '님','success');
+  }catch(ex){
+    hideLoading();
+    err.textContent = ex.message || '로그인 실패';
+    err.classList.add('on');
+  }
+}
+
+async function handleSignup(e){
+  e.preventDefault();
+  const name  = document.getElementById('su-name').value.trim();
+  const id    = document.getElementById('su-id').value.trim();
+  const pw    = document.getElementById('su-pw').value;
+  const email = document.getElementById('su-email').value.trim();
+  const err   = document.getElementById('su-err');
+  err.classList.remove('on');
+  showLoading('가입 중...');
+  try{
+    // 중복 ID 체크
+    const { data: dup } = await supa.rpc('get_email_by_login_id', { p_login_id: id });
+    if(dup && dup.length){ throw new Error('이미 사용 중인 ID입니다'); }
+
+    const { data, error } = await supa.auth.signUp({
+      email, password: pw,
+      options: { data: { login_id: id, full_name: name, company_email: email } }
+    });
+    if(error) throw error;
+    hideLoading();
+    toast('가입 완료! 로그인해주세요','success');
+    showPage('login');
+    document.getElementById('li-id').value = id;
+  }catch(ex){
+    hideLoading();
+    err.textContent = ex.message || '가입 실패';
+    err.classList.add('on');
+  }
+}
+
+async function handleLogout(){
+  if(S.realtimeChannel){ await supa.removeChannel(S.realtimeChannel); S.realtimeChannel = null; }
+  await supa.auth.signOut();
+  S.user = null; S.profile = null; S.sessionId = null;
+  showPage('login');
+  toast('로그아웃되었습니다','');
+}
+
+async function loadProfile(){
+  const { data:{ user } } = await supa.auth.getUser();
+  if(!user) return null;
+  S.user = user;
+  const { data, error } = await supa.from('profiles').select('*').eq('id', user.id).single();
+  if(error) throw error;
+  S.profile = data;
+  // 네비게이션 업데이트
+  document.getElementById('nav-user-name').textContent = data.full_name + ' (' + data.login_id + ')';
+  const rb = document.getElementById('nav-user-role');
+  rb.textContent = data.role;
+  rb.className = 'role-badge' + (data.role==='admin' ? ' admin' : '');
+  document.getElementById('btn-admin').style.display = (data.role==='admin') ? 'inline-flex' : 'none';
+  return data;
+}
+
+/* ══════════════════ AUDIT LOG (C-4) ══════════════════ */
+async function writeAudit(action, entity, entityId, meta){
+  try{
+    if(!S.user) return;
+    await supa.from('audit_logs').insert({
+      user_id: S.user.id,
+      session_id: S.sessionId,
+      action, entity, entity_id: entityId,
+      metadata: meta || {},
+      device_info: DEVICE_INFO
+    });
+  }catch(e){ console.warn('audit fail', e); }
+}
+
+/* ══════════════════ DASHBOARD ══════════════════ */
+async function renderDashboard(){
+  document.getElementById('dash-user-name').textContent = S.profile?.full_name || '—';
+  // 통계
+  try{
+    const { data: st } = await supa.from('v_user_stats').select('*').eq('user_id', S.user.id).maybeSingle();
+    const s = st || {};
+    document.getElementById('dash-stats').innerHTML = `
+      <div class="stat"><div class="stat-label">전체 세션</div><div class="stat-value p">${s.session_count||0}</div></div>
+      <div class="stat"><div class="stat-label">완료 세션</div><div class="stat-value g">${s.completed_count||0}</div></div>
+      <div class="stat"><div class="stat-label">실사 건수</div><div class="stat-value">${s.sample_count||0}</div></div>
+      <div class="stat"><div class="stat-label">일치</div><div class="stat-value g">${s.match_count||0}</div></div>
+      <div class="stat"><div class="stat-label">불일치</div><div class="stat-value r">${s.diff_count||0}</div></div>
+    `;
+  }catch(e){ console.warn(e); }
+  loadDashSessions();
+}
+
+async function loadDashSessions(){
+  const filter = document.getElementById('dash-filter').value;
+  let q = supa.from('count_sessions').select('*').eq('owner_id', S.user.id).order('updated_at', { ascending:false });
+  if(filter !== 'all') q = q.eq('status', filter);
+  const { data, error } = await q;
+  const box = document.getElementById('dash-sessions');
+  if(error || !data || !data.length){
+    box.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div class="title">세션이 없습니다</div><div class="desc">+ 새 세션 시작 버튼을 눌러 시작하세요</div></div>`;
+    return;
+  }
+  box.innerHTML = data.map(s=>{
+    const stepLabel = ['파일 업로드','헤더 매핑','샘플링','S→F 실사','F→S 실사','완료'][s.current_step||0];
+    const statusBadge = s.status==='completed' ? '<span class="status st-done">완료</span>'
+                     : s.status==='archived' ? '<span class="status st-inactive">보관</span>'
+                     : '<span class="status st-inprog">진행중 · Step '+((s.current_step||0)+1)+' ('+stepLabel+')</span>';
+    return `<div class="dash-session-card">
+      <div>
+        <div class="dash-s-title">${escapeHtml(s.title)}</div>
+        <div class="dash-s-meta">
+          ${statusBadge}
+          ${s.client_name ? '<span>🏢 '+escapeHtml(s.client_name)+'</span>' : ''}
+          <span>📅 ${new Date(s.updated_at).toLocaleString('ko-KR')}</span>
+        </div>
+      </div>
+      <div class="dash-s-btns">
+        <button class="btn btn-p btn-sm" onclick="openSession('${s.id}')">이어서</button>
+        <button class="btn btn-s btn-sm" onclick="deleteSession('${s.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openNewSessionModal(){
+  document.getElementById('ns-title').value = '';
+  document.getElementById('ns-client').value = '';
+  document.getElementById('modal-new').classList.add('on');
+}
+
+async function createNewSession(templateData){
+  const title = document.getElementById('ns-title').value.trim();
+  const client = document.getElementById('ns-client').value.trim();
+  if(!title){ toast('세션 제목 입력 필요','error'); return; }
+  showLoading('세션 생성 중...');
+  try{
+    const insertData = {
+      owner_id: S.user.id,
+      title, client_name: client || null,
+      status: 'in_progress', current_step: 0
+    };
+    if(templateData){
+      insertData.mapping_json = templateData.mapping_json;
+      insertData.sample_size_json = templateData.sample_size_json;
+      insertData.session_template_id = templateData.id;
+    }
+    const { data, error } = await supa.from('count_sessions').insert(insertData).select().single();
+    if(error) throw error;
+    closeModal('modal-new');
+    hideLoading();
+    await writeAudit('create_session', 'count_sessions', data.id, { title });
+    openSession(data.id);
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+
+async function deleteSession(id){
+  if(!confirm('이 세션을 완전히 삭제합니다. 관련 데이터가 모두 사라집니다. 계속?')) return;
+  showLoading('삭제 중...');
+  try{
+    const { error } = await supa.from('count_sessions').delete().eq('id', id);
+    if(error) throw error;
+    await writeAudit('delete_session','count_sessions', id, {});
+    hideLoading(); toast('삭제 완료','success'); loadDashSessions();
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+
+/* ══════════════════ SESSION LOAD/OPEN ══════════════════ */
+async function openSession(id){
+  showLoading('세션 불러오는 중...');
+  try{
+    // 1) session
+    const { data: sess, error:e1 } = await supa.from('count_sessions').select('*').eq('id', id).single();
+    if(e1) throw e1;
+    S.sessionId = id;
+    S.session = sess;
+    S.currentStep = sess.current_step || 0;
+    S.mapping = sess.mapping_json || { rm:{}, wip:{}, fg:{} };
+    S.sampleSize = sess.sample_size_json || { rm:0, wip:0, fg:0 };
+
+    // 2) inventory (row_index 기준 정렬 & 카테고리별 재정렬)
+    const { data: invRaw } = await supa.from('inventory_lists')
+      .select('*').eq('session_id', id).order('row_index', { ascending:true });
+    S.rawData = { rm:[], wip:[], fg:[] };
+    S.inventoryIds = { rm:[], wip:[], fg:[] };
+    S.headers = { rm:[], wip:[], fg:[] };
+    // 카테고리별로 분리 후 row_index 기준 재정렬 (안전장치)
+    const byCat = { rm:[], wip:[], fg:[] };
+    for(const row of (invRaw||[])){
+      if(byCat[row.category]) byCat[row.category].push(row);
+    }
+    for(const cat of ['rm','wip','fg']){
+      byCat[cat].sort((a,b)=> (a.row_index||0) - (b.row_index||0));
+      for(const row of byCat[cat]){
+        S.rawData[cat].push(row.raw_data);
+        S.inventoryIds[cat].push(row.id);
+        if(!S.headers[cat].length && row.raw_data){
+          S.headers[cat] = Object.keys(row.raw_data);
+        }
+      }
+    }
+    console.log('[openSession] loaded inventory:', 
+      {rm:S.rawData.rm.length, wip:S.rawData.wip.length, fg:S.rawData.fg.length});
+
+    // 3) samples
+    const { data: smp } = await supa.from('count_samples').select('*').eq('session_id', id).order('seq');
+    S.sfItems = { rm:[], wip:[], fg:[] };
+    S.fsItems = { rm:[], wip:[], fg:[] };
+    for(const s of (smp||[])){
+      const item = {
+        _dbId: s.id,
+        _raw: null,
+        inventory_id: s.inventory_id,
+        itemCode: s.item_code||'', itemName: s.item_name||'', spec: s.spec||'',
+        unit: s.unit||'', location: s.location||'', tagNo: s.tag_no||'',
+        entityQty: Number(s.entity_qty)||0,
+        pwcQty: s.pwc_qty===null ? null : Number(s.pwc_qty),
+        notes: s.notes||'', status: s.status||'pending', confirmed: !!s.confirmed,
+        bomCheck: s.bom_check||'', compRate: s.comp_rate||''
+      };
+      // _raw 연결 (검색용 - inventory_id 로 정확히 매칭)
+      if(s.inventory_id && S.inventoryIds[s.category]){
+        const idx = S.inventoryIds[s.category].indexOf(s.inventory_id);
+        if(idx >= 0) item._raw = S.rawData[s.category][idx];
+      }
+      if(s.procedure === 'sheet_to_floor') S.sfItems[s.category].push(item);
+      else S.fsItems[s.category].push(item);
+    }
+
+    // 4) template file
+    if(sess.template_file_id){
+      const { data: tf } = await supa.from('template_files').select('*').eq('id', sess.template_file_id).maybeSingle();
+      if(tf){
+        S.template.storagePath = tf.storage_path;
+        S.template.templateFileId = tf.id;
+        S.template.isShared = tf.is_shared;
+        // 파일 다운로드
+        const { data: blob, error: de } = await supa.storage.from('templates').download(tf.storage_path);
+        if(!de && blob){
+          S.template.buffer = await blob.arrayBuffer();
+          S.template.file = tf.original_name;
+          // 시트명 파싱
+          const wb = new ExcelJS.Workbook();
+          await wb.xlsx.load(S.template.buffer);
+          S.template.sheetNames = wb.worksheets.map(ws => ws.name);
+        }
+      }
+    }
+
+    hideLoading();
+    showPage('app');
+    // UI 복원
+    restoreUIFromState();
+    goStep(S.currentStep);
+    subscribeRealtime();  // C-4 실시간 동기화
+    await writeAudit('open_session', 'count_sessions', id, {});
+  }catch(ex){
+    hideLoading();
+    toast('세션 로드 실패: '+ex.message, 'error');
+    console.error(ex);
+  }
+}
+
+function restoreUIFromState(){
+  // Step 0 상태 복원
+  for(const cat of ['rm','wip','fg']){
+    if(S.rawData[cat].length){
+      const validCount = getValidRows(cat).length;
+      document.getElementById('fn-'+cat).textContent = `✓ DB 로드 (총 ${S.rawData[cat].length.toLocaleString()} / 유효 ${validCount.toLocaleString()})`;
+      document.getElementById('up-'+cat).classList.add('has-file');
+      document.getElementById('cnt-'+cat).textContent = validCount.toLocaleString();
+    }
+  }
+  if(S.template.file){
+    document.getElementById('fn-tpl').textContent = `✓ ${S.template.file}` + (S.template.isShared ? ' (공용)' : '');
+    document.getElementById('up-tpl').classList.add('has-file');
+    document.getElementById('cnt-tpl').textContent = '✓';
+    document.getElementById('cnt-tpl').style.color = 'var(--g)';
+  }
+  checkReadyStep0();
+}
+
+async function subscribeRealtime(){
+  if(S.realtimeChannel){ await supa.removeChannel(S.realtimeChannel); }
+  S.realtimeChannel = supa.channel('sess-'+S.sessionId)
+    .on('postgres_changes', { event:'*', schema:'public', table:'count_samples', filter:'session_id=eq.'+S.sessionId },
+      payload => handleRealtimeSample(payload))
+    .subscribe();
+}
+
+function handleRealtimeSample(payload){
+  // 다른 기기에서의 변경사항 반영
+  const { eventType, new:n, old:o } = payload;
+  if(eventType === 'UPDATE' && n && n.counted_by !== S.user.id){
+    const items = n.procedure === 'sheet_to_floor' ? S.sfItems[n.category] : S.fsItems[n.category];
+    const idx = items.findIndex(it => it._dbId === n.id);
+    if(idx >= 0){
+      items[idx].pwcQty = n.pwc_qty;
+      items[idx].notes = n.notes;
+      items[idx].status = n.status;
+      items[idx].confirmed = n.confirmed;
+      if(S.currentStep === 3) renderSF();
+      if(S.currentStep === 4) renderFS();
+      toast('📱 다른 기기에서 업데이트됨','');
+    }
+  }
+}
+
+function goDashboard(){
+  if(S.realtimeChannel){ supa.removeChannel(S.realtimeChannel); S.realtimeChannel = null; }
+  showPage('dashboard');
+}
+
+/* ══════════════════ NAV (in-app steps) ══════════════════ */
+function goStep(n){
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step-'+n).classList.add('active');
+  document.querySelectorAll('.sn').forEach((s,i)=>{
+    s.classList.remove('active','done');
+    if(i===n) s.classList.add('active');
+    else if(i<n) s.classList.add('done');
+  });
+  document.getElementById('nav-pill').textContent = `단계 ${n+1} / 6`;
+  S.currentStep = n;
+  // 세션에 저장
+  if(S.sessionId){
+    supa.from('count_sessions').update({ current_step: n }).eq('id', S.sessionId).then(()=>{});
+  }
+  window.scrollTo(0,0);
+  if(n===1) renderMapping();
+  if(n===2) updateSamplingPools();
+  if(n===3) renderSF();
+  if(n===4) renderFS();
+  if(n===5) renderResult();
+}
+document.querySelectorAll('.sn').forEach(el=> el.addEventListener('click',()=> goStep(+el.dataset.step)));
+
+/* ══════════════════ STEP 0: FILE UPLOAD ══════════════════ */
+async function loadFile(e, cat){
+  const file = e.target.files[0]; if(!file) return;
+  if(!S.sessionId){ toast('세션이 없습니다. 대시보드로','error'); return; }
+  showLoading(`${CAT_CODE[cat]} 파일 저장 중...`);
+  const reader = new FileReader();
+  reader.onload = async (ev)=>{
+    try{
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, { type:'array' });
+      let best = wb.SheetNames[0], bestLen = 0;
+      for(const sn of wb.SheetNames){
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval:'' });
+        if(rows.length > bestLen){ bestLen = rows.length; best = sn; }
+      }
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[best], { defval:'' });
+      if(!rows.length){ hideLoading(); toast('데이터 없음','error'); return; }
+
+      S.rawData[cat] = rows;
+      S.headers[cat] = Object.keys(rows[0]);
+      S.files[cat] = file.name;
+      autoMap(cat);
+
+      // DB 저장 (기존 해당 카테고리 삭제 → bulk insert)
+      await supa.from('inventory_lists').delete().eq('session_id', S.sessionId).eq('category', cat);
+      const m = S.mapping[cat];
+      const BATCH = 500;
+      S.inventoryIds[cat] = [];
+      for(let i=0; i<rows.length; i+=BATCH){
+        const slice = rows.slice(i, i+BATCH).map((r, j)=>({
+          session_id: S.sessionId, category: cat, file_name: file.name,
+          row_index: i+j, raw_data: r,
+          item_code: String(r[m.itemCode] ?? '') || null,
+          item_name: String(r[m.itemName] ?? '') || null,
+          location: String(r[m.location] ?? '') || null,
+          entity_qty: parseNum(r[m.entityQty])
+        }));
+        const { data:ins, error } = await supa.from('inventory_lists').insert(slice).select('id, row_index');
+        if(error) throw error;
+        ins.sort((a,b)=>a.row_index-b.row_index).forEach(x=> S.inventoryIds[cat][x.row_index] = x.id);
+      }
+
+      const validCount = getValidRows(cat).length;
+      document.getElementById('fn-'+cat).textContent = `✓ ${file.name} (총 ${rows.length.toLocaleString()} / 유효 ${validCount.toLocaleString()})`;
+      document.getElementById('up-'+cat).classList.add('has-file');
+      document.getElementById('cnt-'+cat).textContent = validCount.toLocaleString();
+      checkReadyStep0();
+      hideLoading();
+      toast(`${cat.toUpperCase()} 저장 완료`,'success');
+      await writeAudit('upload_list', 'inventory_lists', null, { category: cat, rows: rows.length });
+    }catch(err){ hideLoading(); console.error(err); toast('실패: '+err.message,'error'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function loadTemplate(e){
+  const file = e.target.files[0]; if(!file) return;
+  if(!S.sessionId){ toast('세션이 없습니다','error'); return; }
+  showLoading('템플릿 업로드 중...');
+  try{
+    const buf = await file.arrayBuffer();
+    S.template.buffer = buf;
+    S.template.file = file.name;
+
+    // Supabase Storage upload
+    const path = `${S.user.id}/${S.sessionId}/${Date.now()}_${file.name}`;
+    const { error:upE } = await supa.storage.from('templates').upload(path, file, { upsert: true });
+    if(upE) throw upE;
+
+    // template_files record
+    const { data: tf, error:tfE } = await supa.from('template_files').insert({
+      session_id: S.sessionId, storage_path: path, original_name: file.name,
+      is_shared: false, uploaded_by: S.user.id
+    }).select().single();
+    if(tfE) throw tfE;
+    S.template.storagePath = path;
+    S.template.templateFileId = tf.id;
+    S.template.isShared = false;
+
+    // session 연결
+    await supa.from('count_sessions').update({ template_file_id: tf.id }).eq('id', S.sessionId);
+
+    // 시트명
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    S.template.sheetNames = wb.worksheets.map(ws => ws.name);
+
+    document.getElementById('fn-tpl').textContent = `✓ ${file.name}`;
+    document.getElementById('up-tpl').classList.add('has-file');
+    document.getElementById('cnt-tpl').textContent = '✓';
+    document.getElementById('cnt-tpl').style.color = 'var(--g)';
+    checkReadyStep0();
+    hideLoading();
+    toast('템플릿 저장 완료','success');
+    await writeAudit('upload_template', 'template_files', tf.id, { name: file.name });
+  }catch(err){ hideLoading(); console.error(err); toast('실패: '+err.message,'error'); }
+}
+
+async function loadSharedTemplateIfAny(){
+  // A-1: 공용 템플릿 자동 선택
+  const { data } = await supa.from('template_files').select('*').eq('is_shared', true).order('created_at', { ascending:false }).limit(1);
+  if(!data || !data.length) return;
+  const tf = data[0];
+  const infoBox = document.getElementById('tpl-shared-info');
+  infoBox.style.display = 'block';
+  infoBox.innerHTML = `🌐 공용 템플릿 "<strong>${escapeHtml(tf.original_name)}</strong>"이 등록되어 있습니다. 
+    <button class="btn btn-p btn-xs" onclick="useSharedTemplate('${tf.id}')">이 템플릿 사용</button>`;
+}
+window.useSharedTemplate = async function(tfId){
+  showLoading('공용 템플릿 로드 중...');
+  try{
+    const { data: tf } = await supa.from('template_files').select('*').eq('id', tfId).single();
+    const { data: blob, error } = await supa.storage.from('templates').download(tf.storage_path);
+    if(error) throw error;
+    const buf = await blob.arrayBuffer();
+    S.template.buffer = buf;
+    S.template.file = tf.original_name;
+    S.template.storagePath = tf.storage_path;
+    S.template.templateFileId = tf.id;
+    S.template.isShared = true;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    S.template.sheetNames = wb.worksheets.map(ws => ws.name);
+    await supa.from('count_sessions').update({ template_file_id: tf.id }).eq('id', S.sessionId);
+    document.getElementById('fn-tpl').textContent = `✓ ${tf.original_name} (공용)`;
+    document.getElementById('up-tpl').classList.add('has-file');
+    document.getElementById('cnt-tpl').textContent = '✓';
+    document.getElementById('cnt-tpl').style.color = 'var(--g)';
+    checkReadyStep0();
+    hideLoading();
+    toast('공용 템플릿 적용','success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+};
+
+function checkReadyStep0(){
+  document.getElementById('btn-next-0').disabled = !(S.rawData.rm.length || S.rawData.wip.length || S.rawData.fg.length);
+}
+
+async function saveStep0AndNext(){
+  goStep(1);
+}
+
+/* ══════════════════ AUTO MAPPING + AI (C-5) ══════════════════ */
+const AUTO_HINTS = {
+  itemCode: ['품목코드','자재코드','item code','code','품번'],
+  itemName: ['품목명','품목명칭','item name','name','명칭'],
+  unit:     ['단위','unit','uom'],
+  location: ['로케이션','위치','location','구역','loc','창고'],
+  spec:     ['규격','spec','specification','사양'],
+  entityQty:['재고수량','바코드실사수량','실사수량','수량','qty','quantity','재고량','현재고'],
+  tagNo:    ['tag','sheet','row','no.'],
+  testNo:   ['test'],
+  bomCheck: ['bom','재료명세서'],
+  compRate: ['완성도','완성','stage']
+};
+function autoMap(cat){
+  const headers = S.headers[cat];
+  const fields = [...PIO_FIELDS.common, ...(cat==='wip'?PIO_FIELDS.wip_extra:[])];
+  if(!S.mapping[cat]) S.mapping[cat] = {};
+  for(const fld of fields){
+    if(S.mapping[cat][fld.key]) continue;
+    const hints = AUTO_HINTS[fld.key] || [];
+    let matched = '';
+    for(const hint of hints){
+      for(const h of headers){
+        if(String(h).toLowerCase().trim().includes(hint.toLowerCase())){ matched = h; break; }
+      }
+      if(matched) break;
+    }
+    S.mapping[cat][fld.key] = matched;
+  }
+}
+
+async function applyAIMapping(){
+  // C-5: mapping_history에서 학습된 매핑 적용
+  const cat = S.currentMapTab;
+  const headers = S.headers[cat];
+  if(!headers.length){ toast('업로드된 파일 없음','error'); return; }
+  showLoading('AI 매핑 학습 데이터 조회중...');
+  try{
+    const { data } = await supa.from('mapping_history').select('*').eq('category', cat).order('use_count', { ascending:false });
+    if(!data || !data.length){ hideLoading(); toast('학습된 매핑이 없습니다','warn'); return; }
+    let applied = 0;
+    for(const h of data){
+      if(headers.includes(h.source_header) && !S.mapping[cat][h.pio_field]){
+        S.mapping[cat][h.pio_field] = h.source_header;
+        applied++;
+      }
+    }
+    renderMapping();
+    hideLoading();
+    toast(`AI 매핑 ${applied}건 적용됨`,'success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+
+async function saveMappingToHistory(cat){
+  // 성공적으로 사용된 매핑을 학습 DB에 저장
+  const m = S.mapping[cat];
+  for(const [field, source] of Object.entries(m)){
+    if(!source) continue;
+    try{
+      // upsert: 있으면 use_count+1, 없으면 insert
+      const { data: existing } = await supa.from('mapping_history')
+        .select('id, use_count')
+        .eq('source_header', source).eq('pio_field', field).eq('category', cat)
+        .maybeSingle();
+      if(existing){
+        await supa.from('mapping_history').update({ use_count: existing.use_count+1 }).eq('id', existing.id);
+      } else {
+        await supa.from('mapping_history').insert({ source_header: source, pio_field: field, category: cat, user_id: S.user.id });
+      }
+    }catch(e){ console.warn(e); }
+  }
+}
+
+function getValidRows(cat){
+  const m = S.mapping[cat];
+  if(!m || !m.entityQty) return S.rawData[cat];
+  return S.rawData[cat].filter(r=> parseNum(r[m.entityQty]) > 0);
+}
+
+/* ══════════════════ MAPPING UI ══════════════════ */
+function switchMapTab(cat){
+  S.currentMapTab = cat;
+  document.querySelectorAll('#step-1 .tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===cat));
+  renderMapping();
+}
+function renderMapping(){
+  const cat = S.currentMapTab;
+  const headers = S.headers[cat];
+  const body = document.getElementById('mapping-body');
+  if(!headers.length){
+    body.innerHTML = `<div class="empty-state"><div class="desc">${cat.toUpperCase()} 파일이 업로드되지 않았습니다.</div></div>`;
+    return;
+  }
+  const fields = [...PIO_FIELDS.common, ...(cat==='wip'?PIO_FIELDS.wip_extra:[])];
+  body.innerHTML = fields.map(fld=>{
+    const current = (S.mapping[cat] || {})[fld.key] || '';
+    const opts = ['<option value="">(매핑 없음)</option>', ...headers.map(h=>`<option value="${escapeAttr(h)}" ${h===current?'selected':''}>${escapeHtml(h)}</option>`)].join('');
+    return `<div class="mapping-row">
+      <div class="mapping-label">${fld.label}${fld.required?' <span style="color:var(--r)">*</span>':''}</div>
+      <div class="mapping-arrow">←</div>
+      <select class="select" onchange="S.mapping['${cat}']['${fld.key}']=this.value; updateValidCount('${cat}')">${opts}</select>
+      <div class="ai-suggest" onclick="applyAIMappingField('${cat}','${fld.key}')">🤖 AI</div>
+    </div>`;
+  }).join('');
+}
+async function applyAIMappingField(cat, field){
+  const { data } = await supa.from('mapping_history').select('source_header').eq('category', cat).eq('pio_field', field).order('use_count', { ascending:false }).limit(1);
+  if(data && data.length && S.headers[cat].includes(data[0].source_header)){
+    S.mapping[cat][field] = data[0].source_header;
+    renderMapping();
+    toast(`"${data[0].source_header}" 적용됨`,'success');
+  } else toast('학습된 매핑 없음','warn');
+}
+function updateValidCount(cat){
+  const rows = S.rawData[cat];
+  const validCount = getValidRows(cat).length;
+  document.getElementById('cnt-'+cat).textContent = validCount.toLocaleString();
+}
+
+async function saveStep1AndNext(){
+  // 매핑 저장 + 학습
+  try{
+    await supa.from('count_sessions').update({ mapping_json: S.mapping }).eq('id', S.sessionId);
+    for(const cat of ['rm','wip','fg']) if(S.rawData[cat].length) saveMappingToHistory(cat);
+  }catch(e){ console.warn(e); }
+  goStep(2);
+}
+
+/* ══════════════════ SAMPLING ══════════════════ */
+function updateSamplingPools(){
+  for(const cat of ['rm','wip','fg']){
+    const valid = getValidRows(cat);
+    document.getElementById('pool-'+cat).textContent = `${valid.length.toLocaleString()} (전체 ${S.rawData[cat].length.toLocaleString()})`;
+    if(!S.sampleSize[cat] && valid.length) S.sampleSize[cat] = Math.max(1, Math.floor(valid.length * 0.1));
+    const smpEl = document.getElementById('smp-'+cat);
+    smpEl.value = S.sampleSize[cat] || 0;
+    smpEl.max = valid.length;
+    smpEl.oninput = ()=>{ S.sampleSize[cat] = +smpEl.value || 0; };
+    const statusEl = document.getElementById('smp-'+cat+'-status');
+    if(S.sfItems[cat].length > 0){
+      statusEl.style.display = 'block';
+      statusEl.textContent = `✓ 샘플링 완료 (${S.sfItems[cat].length}건)`;
+    } else statusEl.style.display = 'none';
+  }
+  document.getElementById('btn-next-2').disabled = (S.sfItems.rm.length + S.sfItems.wip.length + S.sfItems.fg.length === 0);
+}
+
+async function sampleOne(cat){
+  const valid = getValidRows(cat);
+  const n = +document.getElementById('smp-'+cat).value || 0;
+  if(n <= 0){ toast('샘플 개수 입력','error'); return; }
+  if(n > valid.length){ toast('유효건수 초과','error'); return; }
+  if(S.sfItems[cat].length > 0){
+    if(!confirm(`${CAT_LABEL[cat]} 기존 샘플(${S.sfItems[cat].length}건)이 초기화됩니다. 계속?`)) return;
+  }
+  showLoading('샘플링 저장 중...');
+  try{
+    S.sampleSize[cat] = n;
+    // 기존 해당 카테고리 샘플 DB 삭제
+    await supa.from('count_samples').delete().eq('session_id', S.sessionId).eq('category', cat);
+
+    const idx = Array.from({length:valid.length}, (_,i)=>i);
+    for(let i=idx.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [idx[i],idx[j]] = [idx[j],idx[i]]; }
+    const chosen = idx.slice(0,n);
+
+    const newItems = [];
+    const inserts = [];
+    chosen.forEach((i, order)=>{
+      const row = valid[i];
+      const invIdx = S.rawData[cat].indexOf(row);
+      const invId = S.inventoryIds[cat][invIdx];
+      const m = mapRow(row, cat);
+      newItems.push({ ...m, _raw: row, inventory_id: invId, pwcQty: m.entityQty, notes:'', status:'pending', confirmed:false });
+      inserts.push(makeSampleDbRow(cat, 'sheet_to_floor', invId, order, m, { pwc_qty: m.entityQty, status:'pending', confirmed:false }));
+    });
+    const { data: ins, error } = await supa.from('count_samples').insert(inserts).select('id, seq');
+    if(error) throw error;
+    ins.sort((a,b)=>a.seq-b.seq).forEach((r,i)=>{ newItems[i]._dbId = r.id; });
+
+    S.sfItems[cat] = newItems;
+    S.fsItems[cat] = [];
+    await supa.from('count_sessions').update({ sample_size_json: S.sampleSize }).eq('id', S.sessionId);
+    await writeAudit('sample', 'count_samples', null, { category: cat, n });
+
+    document.getElementById('smp-'+cat+'-status').style.display = 'block';
+    document.getElementById('smp-'+cat+'-status').textContent = `✓ 샘플링 완료 (${n}건)`;
+    document.getElementById('btn-next-2').disabled = false;
+    hideLoading();
+    toast(`${CAT_LABEL[cat]} ${n}건`,'success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); console.error(ex); }
+}
+
+async function runAllSampling(){
+  if(!confirm('전체 샘플링: 기존 샘플이 모두 초기화됩니다. 계속?')) return;
+  for(const cat of ['rm','wip','fg']){
+    const n = +document.getElementById('smp-'+cat).value || 0;
+    if(n > 0){ await sampleOne(cat); }
+  }
+}
+
+function mapRow(row, cat){
+  const m = S.mapping[cat] || {};
+  return {
+    itemCode: String(row[m.itemCode] ?? ''),
+    itemName: String(row[m.itemName] ?? ''),
+    unit:     String(row[m.unit] ?? ''),
+    location: String(row[m.location] ?? ''),
+    spec:     String(row[m.spec] ?? ''),
+    tagNo:    String(row[m.tagNo] ?? ''),
+    testNo:   String(row[m.testNo] ?? ''),
+    entityQty: parseNum(row[m.entityQty]),
+    bomCheck: String(row[m.bomCheck] ?? ''),
+    compRate: String(row[m.compRate] ?? '')
+  };
+}
+
+function makeSampleDbRow(cat, procedure, invId, seq, m, overrides){
+  return {
+    session_id: S.sessionId, category: cat, procedure,
+    inventory_id: invId, seq,
+    item_code: m.itemCode, item_name: m.itemName, spec: m.spec,
+    unit: m.unit, location: m.location, tag_no: m.tagNo,
+    entity_qty: m.entityQty,
+    pwc_qty: overrides?.pwc_qty ?? null,
+    notes: overrides?.notes ?? '',
+    status: overrides?.status ?? 'pending',
+    confirmed: overrides?.confirmed ?? false,
+    bom_check: m.bomCheck, comp_rate: m.compRate,
+    counted_by: S.user.id, device_info: DEVICE_INFO
+  };
+}
+
+async function saveStep2AndNext(){ goStep(3); }
+
+/* ══════════════════ SHEET → FLOOR ══════════════════ */
+function switchSFTab(cat){
+  S.currentSFTab = cat;
+  document.querySelectorAll('#step-3 .tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===cat));
+  renderSF();
+}
+function renderSF(){
+  for(const c of ['rm','wip','fg']) document.getElementById('sft-'+c+'-n').textContent = S.sfItems[c].length;
+  const cat = S.currentSFTab;
+  const items = S.sfItems[cat];
+  document.getElementById('sf-cur-n').textContent = items.length;
+  const body = document.getElementById('sf-body');
+  if(!items.length){ body.innerHTML = `<tr><td colspan="14" style="text-align:center;padding:30px;color:var(--k3)">샘플 없음</td></tr>`; }
+  else{ body.innerHTML = items.map((it,i)=> renderSFRow(it,i,cat)).join(''); }
+  updateSFStats();
+}
+function renderSFRow(it, i, cat){
+  const diff = it.confirmed ? (it.pwcQty - it.entityQty) : '';
+  const diffStr = diff==='' ? '' : (diff>0?'+'+diff:''+diff);
+  const diffColor = diff==='' ? '' : (diff===0?'var(--g)':'var(--r)');
+  const stCls = it.status==='pending'?'st-pending':(it.status==='match'?'st-match':'st-diff');
+  const stTxt = it.status==='pending'?'미확인':(it.status==='match'?'일치':'불일치');
+  const modCls = (it.pwcQty !== it.entityQty) ? 'modified' : '';
+  const btnCls = it.confirmed ? 'btn-confirm done' : 'btn-confirm';
+  const btnTxt = it.confirmed ? '✓ 확인됨' : '확인';
+  return `<tr>
+    <td>${i+1}</td>
+    <td style="font-family:var(--fm);font-weight:600;color:var(--o)">${escapeHtml(it.itemCode)}</td>
+    <td>${escapeHtml(it.itemName)}</td>
+    <td style="font-size:12px;color:var(--k3)">${escapeHtml(it.spec)}</td>
+    <td>${escapeHtml(it.unit)}</td>
+    <td>${escapeHtml(it.location)}</td>
+    <td style="text-align:right;font-family:var(--fm);font-weight:600">${fmt(it.entityQty)}</td>
+    <td><input type="number" class="num-input ${modCls}" value="${it.pwcQty??''}" onchange="updateItem('sf','${cat}',${i},'pwcQty',this.value)"></td>
+    <td><button class="${btnCls}" onclick="confirmItem('sf','${cat}',${i})">${btnTxt}</button></td>
+    <td style="text-align:right;font-weight:700;color:${diffColor};font-family:var(--fm)">${diffStr}</td>
+    <td><span class="status ${stCls}">${stTxt}</span></td>
+    <td><input type="text" class="diff-input" value="${escapeAttr(it.notes)}" onchange="updateItem('sf','${cat}',${i},'notes',this.value)" placeholder="차이 사유..."></td>
+    <td><button class="btn btn-s btn-xs" onclick="resampleOne('${cat}',${i})">🎲</button></td>
+    <td><button class="btn-del" onclick="removeSFItem('${cat}',${i})">🗑️</button></td>
+  </tr>`;
+}
+async function resampleOne(cat, i){
+  const valid = getValidRows(cat);
+  const excludedRaws = new Set(S.sfItems[cat].map((it,idx)=> idx===i ? null : it._raw).filter(Boolean));
+  const candidates = valid.filter(r => !excludedRaws.has(r));
+  if(!candidates.length){ toast('대체 가능 항목 없음','error'); return; }
+  const newRow = candidates[Math.floor(Math.random() * candidates.length)];
+  const invIdx = S.rawData[cat].indexOf(newRow);
+  const invId = S.inventoryIds[cat][invIdx];
+  const mapped = mapRow(newRow, cat);
+  const oldId = S.sfItems[cat][i]._dbId;
+  showLoading('재샘플링 저장 중...');
+  try{
+    if(oldId) await supa.from('count_samples').delete().eq('id', oldId);
+    const row = makeSampleDbRow(cat, 'sheet_to_floor', invId, i, mapped, { pwc_qty: mapped.entityQty });
+    const { data: ins, error } = await supa.from('count_samples').insert(row).select('id').single();
+    if(error) throw error;
+    S.sfItems[cat][i] = { ...mapped, _raw: newRow, _dbId: ins.id, inventory_id: invId, pwcQty: mapped.entityQty, notes:'', status:'pending', confirmed:false };
+    renderSF();
+    hideLoading();
+    toast('재샘플링 완료','success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+async function removeSFItem(cat, i){
+  const it = S.sfItems[cat][i];
+  if(!confirm(`삭제?\n${it.itemCode} / ${it.itemName}`)) return;
+  showLoading('삭제 중...');
+  try{
+    if(it._dbId) await supa.from('count_samples').delete().eq('id', it._dbId);
+    S.sfItems[cat].splice(i,1);
+    renderSF();
+    hideLoading(); toast('삭제됨','success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+async function addMoreSamples(){
+  const cat = S.currentSFTab;
+  const addN = +document.getElementById('sf-add-n').value || 0;
+  if(addN <= 0){ toast('개수 입력','error'); return; }
+  const valid = getValidRows(cat);
+  const existingRaws = new Set(S.sfItems[cat].map(it=> it._raw));
+  const candidates = valid.filter(r => !existingRaws.has(r));
+  if(!candidates.length){ toast('추가 가능 없음','error'); return; }
+  const n = Math.min(addN, candidates.length);
+  const idx = Array.from({length:candidates.length}, (_,i)=>i);
+  for(let i=idx.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [idx[i],idx[j]] = [idx[j],idx[i]]; }
+  showLoading('추가 샘플링 저장중...');
+  try{
+    const startSeq = S.sfItems[cat].length;
+    const newItems = [];
+    const inserts = [];
+    idx.slice(0,n).forEach((i, k)=>{
+      const row = candidates[i];
+      const invIdx = S.rawData[cat].indexOf(row);
+      const invId = S.inventoryIds[cat][invIdx];
+      const m = mapRow(row, cat);
+      newItems.push({ ...m, _raw: row, inventory_id: invId, pwcQty: m.entityQty, notes:'', status:'pending', confirmed:false });
+      inserts.push(makeSampleDbRow(cat, 'sheet_to_floor', invId, startSeq+k, m, { pwc_qty: m.entityQty }));
+    });
+    const { data: ins, error } = await supa.from('count_samples').insert(inserts).select('id, seq');
+    if(error) throw error;
+    ins.sort((a,b)=>a.seq-b.seq).forEach((r,i)=>{ newItems[i]._dbId = r.id; });
+    S.sfItems[cat].push(...newItems);
+    S.sampleSize[cat] = S.sfItems[cat].length;
+    await supa.from('count_sessions').update({ sample_size_json: S.sampleSize }).eq('id', S.sessionId);
+    renderSF();
+    hideLoading(); toast(`${n}건 추가`,'success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+
+async function updateItem(proc, cat, i, field, value){
+  const items = proc==='sf' ? S.sfItems[cat] : S.fsItems[cat];
+  const it = items[i];
+  if(field==='pwcQty'){
+    it.pwcQty = value==='' ? null : parseNum(value);
+    if(it.confirmed){ it.confirmed = false; it.status = 'pending'; }
+  } else { it[field] = value; }
+  // 즉시 DB 반영 (디바운스 없이 단순 호출)
+  if(it._dbId){
+    try{
+      await supa.from('count_samples').update({
+        pwc_qty: it.pwcQty, notes: it.notes, status: it.status, confirmed: it.confirmed,
+        counted_by: S.user.id, counted_at: new Date().toISOString(), device_info: DEVICE_INFO
+      }).eq('id', it._dbId);
+    }catch(e){ console.warn(e); }
+  }
+  if(proc==='sf') renderSF(); else renderFS();
+}
+
+async function confirmItem(proc, cat, i){
+  const items = proc==='sf' ? S.sfItems[cat] : S.fsItems[cat];
+  const it = items[i];
+  if(it.pwcQty === null || it.pwcQty === undefined){ toast('PwC 수량 입력 필요','error'); return; }
+  it.confirmed = true;
+  it.status = (it.pwcQty === it.entityQty) ? 'match' : 'diff';
+  if(it._dbId){
+    try{
+      await supa.from('count_samples').update({
+        pwc_qty: it.pwcQty, notes: it.notes, status: it.status, confirmed: true,
+        counted_by: S.user.id, counted_at: new Date().toISOString(), device_info: DEVICE_INFO
+      }).eq('id', it._dbId);
+      await writeAudit('confirm','count_samples', it._dbId, { status: it.status, proc });
+    }catch(e){ console.warn(e); }
+  }
+  if(proc==='sf') renderSF(); else renderFS();
+}
+function updateSFStats(){
+  const all = [...S.sfItems.rm,...S.sfItems.wip,...S.sfItems.fg];
+  document.getElementById('sf-total').textContent = all.length;
+  document.getElementById('sf-done').textContent = all.filter(i=>i.status!=='pending').length;
+  document.getElementById('sf-match').textContent = all.filter(i=>i.status==='match').length;
+  document.getElementById('sf-diff').textContent = all.filter(i=>i.status==='diff').length;
+  document.getElementById('sf-pending').textContent = all.filter(i=>i.status==='pending').length;
+}
+
+/* ══════════════════ FLOOR → SHEET ══════════════════ */
+function switchFSTab(cat){
+  S.currentFSTab = cat;
+  document.querySelectorAll('#step-4 .tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===cat));
+  document.getElementById('fs-search').value = '';
+  document.getElementById('fs-dropdown').classList.remove('open');
+  renderFS();
+}
+function onFSSearch(){
+  const cat = S.currentFSTab;
+  const q = document.getElementById('fs-search').value.trim().toLowerCase();
+  const dd = document.getElementById('fs-dropdown');
+  if(q.length === 0){ dd.classList.remove('open'); return; }
+  const pool = S.rawData[cat] || [];
+  // 디버깅용 로그
+  console.log('[FS Search]', {cat, q, poolSize: pool.length, mapping: S.mapping[cat]});
+  if(pool.length === 0){
+    dd.innerHTML = `<div class="dropdown-item" style="color:var(--r);grid-template-columns:1fr;padding:14px;font-size:12px">
+      ⚠️ ${cat.toUpperCase()} 원본 리스트가 로드되지 않았습니다. Step 1에서 파일 업로드를 확인하세요.</div>`;
+    dd.classList.add('open');
+    return;
+  }
+  const sfRawSet = new Set(S.sfItems[cat].map(it => it._raw));
+  const fsRawSet = new Set(S.fsItems[cat].map(it => it._raw));
+  const matches = [];
+  for(let idx=0; idx<pool.length; idx++){
+    const row = pool[idx];
+    if(fsRawSet.has(row)) continue;
+    const mapped = mapRow(row, cat);
+    const code = (mapped.itemCode||'').toLowerCase();
+    const name = (mapped.itemName||'').toLowerCase();
+    if(code.includes(q) || name.includes(q)){
+      matches.push({ row, mapped, isSFTaken: sfRawSet.has(row), poolIdx: idx });
+      if(matches.length >= 100) break;
+    }
+  }
+  let html = `<div class="dd-header">
+    <span>품목코드</span><span>품목명</span><span>위치</span><span style="text-align:right">장부수량</span><span style="text-align:center">상태</span>
+  </div>`;
+  if(!matches.length) html += `<div class="dropdown-item" style="color:var(--k3);grid-template-columns:1fr">검색 결과 없음</div>`;
+  else html += matches.map(mt=>{
+    const r = mt.mapped;
+    const takenBadge = mt.isSFTaken ? `<span class="taken-badge">S→F 샘플</span>` : `<span style="text-align:center;color:var(--k4);font-size:11px">—</span>`;
+    const cls = mt.isSFTaken ? 'sf-taken' : '';
+    return `<div class="dropdown-item ${cls}" onclick="addFSItem('${cat}',${mt.poolIdx})">
+      <span class="code">${escapeHtml(r.itemCode)}</span>
+      <span class="name" title="${escapeAttr(r.itemName)}">${escapeHtml(r.itemName)}</span>
+      <span class="loc">${escapeHtml(r.location || '-')}</span>
+      <span class="qty">${fmt(r.entityQty)}</span>
+      ${takenBadge}
+    </div>`;
+  }).join('');
+  dd.innerHTML = html;
+  dd.classList.add('open');
+}
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.dropdown')) document.getElementById('fs-dropdown')?.classList.remove('open');
+});
+
+async function addFSItem(cat, poolIdx){
+  const target = S.sampleSize[cat];
+  if(S.fsItems[cat].length >= target){
+    showModal('⚠️ 목표 도달', `F→S 목표 ${target}건 도달`); return;
+  }
+  const row = S.rawData[cat][poolIdx];
+  if(!row) return;
+  const isSFTaken = S.sfItems[cat].some(it => it._raw === row);
+  if(isSFTaken){
+    showModal('⚠️ 이미 S→F 샘플', `<strong style="color:var(--o)">${escapeHtml(String(row[S.mapping[cat].itemCode]))}</strong>`);
+    return;
+  }
+  if(S.fsItems[cat].some(it => it._raw === row)){ toast('이미 추가됨','warn'); return; }
+  const invId = S.inventoryIds[cat][poolIdx];
+  const mapped = mapRow(row, cat);
+  showLoading('추가 저장 중...');
+  try{
+    const dbRow = makeSampleDbRow(cat, 'floor_to_sheet', invId, S.fsItems[cat].length, mapped, { pwc_qty: mapped.entityQty });
+    const { data: ins, error } = await supa.from('count_samples').insert(dbRow).select('id').single();
+    if(error) throw error;
+    S.fsItems[cat].push({ ...mapped, _raw: row, _dbId: ins.id, inventory_id: invId, pwcQty: mapped.entityQty, notes:'', status:'pending', confirmed:false });
+    document.getElementById('fs-search').value = '';
+    document.getElementById('fs-dropdown').classList.remove('open');
+    renderFS();
+    hideLoading(); toast('추가됨','success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+async function removeFSItem(cat, i){
+  const it = S.fsItems[cat][i];
+  if(!confirm(`삭제?\n${it.itemCode} / ${it.itemName}`)) return;
+  showLoading('삭제 중...');
+  try{
+    if(it._dbId) await supa.from('count_samples').delete().eq('id', it._dbId);
+    S.fsItems[cat].splice(i,1);
+    renderFS();
+    hideLoading(); toast('삭제됨','success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+function renderFS(){
+  for(const c of ['rm','wip','fg']){
+    document.getElementById('fs-'+c+'-n').textContent = S.fsItems[c].length;
+    document.getElementById('fs-'+c+'-t').textContent = S.sampleSize[c] || 0;
+  }
+  const cat = S.currentFSTab;
+  const items = S.fsItems[cat];
+  const target = S.sampleSize[cat] || 0;
+  document.getElementById('fs-remain').textContent = Math.max(0, target - items.length);
+  const body = document.getElementById('fs-body');
+  if(!items.length) body.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:30px;color:var(--k3)">검색해서 추가하세요.</td></tr>`;
+  else body.innerHTML = items.map((it,i)=> renderFSRow(it,i,cat)).join('');
+  updateFSStats();
+}
+function renderFSRow(it, i, cat){
+  const diff = it.confirmed ? (it.pwcQty - it.entityQty) : '';
+  const diffStr = diff==='' ? '' : (diff>0?'+'+diff:''+diff);
+  const diffColor = diff==='' ? '' : (diff===0?'var(--g)':'var(--r)');
+  const stCls = it.status==='pending'?'st-pending':(it.status==='match'?'st-match':'st-diff');
+  const stTxt = it.status==='pending'?'미확인':(it.status==='match'?'일치':'불일치');
+  const modCls = (it.pwcQty !== it.entityQty) ? 'modified' : '';
+  const btnCls = it.confirmed ? 'btn-confirm done' : 'btn-confirm';
+  const btnTxt = it.confirmed ? '✓ 확인됨' : '확인';
+  return `<tr>
+    <td>${i+1}</td>
+    <td style="font-family:var(--fm);font-weight:600;color:var(--o)">${escapeHtml(it.itemCode)}</td>
+    <td>${escapeHtml(it.itemName)}</td>
+    <td style="font-size:12px;color:var(--k3)">${escapeHtml(it.spec)}</td>
+    <td>${escapeHtml(it.unit)}</td>
+    <td>${escapeHtml(it.location)}</td>
+    <td style="text-align:right;font-family:var(--fm);font-weight:600">${fmt(it.entityQty)}</td>
+    <td><input type="number" class="num-input ${modCls}" value="${it.pwcQty??''}" onchange="updateItem('fs','${cat}',${i},'pwcQty',this.value)"></td>
+    <td><button class="${btnCls}" onclick="confirmItem('fs','${cat}',${i})">${btnTxt}</button></td>
+    <td style="text-align:right;font-weight:700;color:${diffColor};font-family:var(--fm)">${diffStr}</td>
+    <td><span class="status ${stCls}">${stTxt}</span></td>
+    <td><input type="text" class="diff-input" value="${escapeAttr(it.notes)}" onchange="updateItem('fs','${cat}',${i},'notes',this.value)"></td>
+    <td><button class="btn-del" onclick="removeFSItem('${cat}',${i})">🗑️</button></td>
+  </tr>`;
+}
+function updateFSStats(){
+  const all = [...S.fsItems.rm,...S.fsItems.wip,...S.fsItems.fg];
+  const target = (S.sampleSize.rm||0) + (S.sampleSize.wip||0) + (S.sampleSize.fg||0);
+  document.getElementById('fs-target').textContent = target;
+  document.getElementById('fs-selected').textContent = all.length;
+  document.getElementById('fs-match').textContent = all.filter(i=>i.status==='match').length;
+  document.getElementById('fs-diff').textContent = all.filter(i=>i.status==='diff').length;
+}
+
+/* ══════════════════ RESULT ══════════════════ */
+function renderResult(){
+  const sfBody = document.getElementById('rs-sf-by-cat');
+  const fsBody = document.getElementById('rs-fs-by-cat');
+  const build = (cat, items, target, isFS) => {
+    const match = items.filter(i=>i.status==='match').length;
+    const diff  = items.filter(i=>i.status==='diff').length;
+    const pending = isFS ? Math.max(0, target - items.filter(i=>i.status!=='pending').length) : items.filter(i=>i.status==='pending').length;
+    const mainLabel = isFS ? `${items.length} / ${target}` : `${items.length}`;
+    return `<div class="result-cat-row">
+      <div class="result-cat-label"><span class="tag ${CAT_TAG[cat]}">${CAT_CODE[cat]}</span> ${CAT_LABEL[cat]}</div>
+      <div class="result-cat-stats">
+        <div class="mini-stat"><div class="mini-stat-label">${isFS?'선택/목표':'샘플'}</div><div class="mini-stat-value ${isFS?'b':'p'}">${mainLabel}</div></div>
+        <div class="mini-stat"><div class="mini-stat-label">일치</div><div class="mini-stat-value g">${match}</div></div>
+        <div class="mini-stat"><div class="mini-stat-label">불일치</div><div class="mini-stat-value r">${diff}</div></div>
+        <div class="mini-stat"><div class="mini-stat-label">미확인</div><div class="mini-stat-value k">${pending}</div></div>
+      </div>
+    </div>`;
+  };
+  sfBody.innerHTML = ['rm','wip','fg'].map(c => build(c, S.sfItems[c], S.sfItems[c].length, false)).join('');
+  fsBody.innerHTML = ['rm','wip','fg'].map(c => build(c, S.fsItems[c], S.sampleSize[c]||0, true)).join('');
+  document.getElementById('btn-dl-pio').disabled = !S.template.buffer;
+  document.getElementById('dl-warn').style.display = S.template.buffer ? 'none' : 'block';
+}
+
+async function markSessionComplete(){
+  if(!confirm('이 세션을 완료 처리하시겠습니까?')) return;
+  try{
+    await supa.from('count_sessions').update({ status: 'completed' }).eq('id', S.sessionId);
+    await writeAudit('complete_session','count_sessions', S.sessionId, {});
+    toast('세션 완료','success');
+    goDashboard();
+  }catch(ex){ toast('실패: '+ex.message,'error'); }
+}
+
+/* ══════════════════ DOWNLOADS (PIO) ══════════════════ */
+async function downloadPioTemplate(){
+  if(!S.template.buffer){ toast('템플릿 필요','error'); return; }
+  showLoading('엑셀 생성 중...');
+  try{
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(S.template.buffer);
+
+    // B-2: 저장된 스키마 우선 사용
+    let schemas = [];
+    if(S.template.templateFileId){
+      const { data } = await supa.from('template_schemas').select('*').eq('template_file_id', S.template.templateFileId);
+      schemas = data || [];
+    }
+
+    const mappings = [
+      { patterns:['3a'], items: S.sfItems.rm, isWIP:false, cat:'rm', proc:'sheet_to_floor', label:'3A RM S→F' },
+      { patterns:['3e'], items: S.fsItems.rm, isWIP:false, cat:'rm', proc:'floor_to_sheet', label:'3E RM F→S' },
+      { patterns:['3b'], items: S.sfItems.wip, isWIP:true,  cat:'wip', proc:'sheet_to_floor', label:'3B WIP S→F' },
+      { patterns:['3f'], items: S.fsItems.wip, isWIP:true,  cat:'wip', proc:'floor_to_sheet', label:'3F WIP F→S' },
+      { patterns:['3c'], items: S.sfItems.fg, isWIP:false, cat:'fg', proc:'sheet_to_floor', label:'3C FG S→F' },
+      { patterns:['3g'], items: S.fsItems.fg, isWIP:false, cat:'fg', proc:'floor_to_sheet', label:'3G FG F→S' }
+    ];
+
+    for(const m of mappings){
+      const ws = findWorksheet(wb, m.patterns);
+      if(!ws) continue;
+      // 저장된 스키마 찾기
+      const sch = schemas.find(s => s.sheet_pattern.toLowerCase() === m.patterns[0].toLowerCase());
+      if(sch){
+        fillWorksheetBySchema(ws, m.items, m.isWIP, sch);
+      } else {
+        fillWorksheet(ws, m.items, m.isWIP);
+      }
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `PIO_Inventory_Count_Result_${yyyymmdd()}.xlsx`);
+    hideLoading();
+    toast('다운로드 완료','success');
+    await writeAudit('download', null, null, { type:'pio_template' });
+  }catch(ex){ hideLoading(); console.error(ex); toast('실패: '+ex.message,'error'); }
+}
+
+function findWorksheet(wb, patterns){
+  for(const ws of wb.worksheets){
+    const name = ws.name.toLowerCase().replace(/\s+/g,'');
+    for(const p of patterns) if(name.includes(p.toLowerCase())) return ws;
+  }
+  return null;
+}
+function findDataStartRow(ws){
+  const maxRow = Math.min(ws.rowCount, 60);
+  for(let r=1; r<=maxRow; r++){
+    for(let c=1; c<=5; c++){
+      const v1 = ws.getCell(r, c).value;
+      const v2 = ws.getCell(r+1, c).value;
+      if((v1 === 1 || v1 === '1') && (v2 === 2 || v2 === '2')) return { row: r, col: c };
+    }
+  }
+  return null;
+}
+function findColumnsByHeader(ws, startRow){
+  const scanStart = Math.max(1, startRow - 6);
+  const cols = {};
+  for(let r=scanStart; r<startRow; r++){
+    for(let c=1; c<=20; c++){
+      const v = ws.getCell(r,c).value;
+      if(!v) continue;
+      const text = (typeof v === 'object' && v.richText) ? v.richText.map(rt=>rt.text).join('') : String(v);
+      const lower = text.toLowerCase();
+      if((lower.includes('test count 번호') || lower.includes('test count number')) && !cols.testNo) cols.testNo = c;
+      else if((lower.includes('품목번호') || lower.includes('품목 번호') || lower.includes('item reference') || lower.includes('식별코드') || lower.includes('식별 코드')) && !cols.itemCode) cols.itemCode = c;
+      else if((lower.includes('품목명') || lower.includes('item name')) && !cols.itemName) cols.itemName = c;
+      else if((lower.includes('측정 단위') || lower.includes('unit of measurement')) && !cols.unit) cols.unit = c;
+      else if((lower.includes('위치') || lower.includes('location')) && !cols.location) cols.location = c;
+      else if((lower.includes('tag/sheet') || lower.includes('row number')) && !cols.tagNo) cols.tagNo = c;
+      else if((lower.includes('회사측 실사결과') || lower.includes('entity count')) && !cols.entityQty) cols.entityQty = c;
+      else if((lower.includes('pwc(삼일)측 실사결과') || lower.includes('pwc count')) && !cols.pwcQty) cols.pwcQty = c;
+      else if((lower.includes('차이(+') || lower.includes('차이 (+') || lower.includes('difference')) && !cols.diff) cols.diff = c;
+      else if((lower.includes('재료명세서') || lower.includes('bom)')) && !cols.bomCheck) cols.bomCheck = c;
+      else if((lower.includes('회사가 파악한 완성도') || lower.includes("entity's stage")) && !cols.compRateE) cols.compRateE = c;
+      else if((lower.includes('pwc(삼일)측 실사입회자가') || lower.includes("pwc's stage")) && !cols.compRateP) cols.compRateP = c;
+      else if((lower.includes('평가') || lower.includes('evaluation') || lower.includes('notes') || lower.includes('비고')) && !cols.notes) cols.notes = c;
+    }
+  }
+  return cols;
+}
+function fillWorksheet(ws, items, isWIP){
+  const start = findDataStartRow(ws);
+  if(!start) return 0;
+  const cols = findColumnsByHeader(ws, start.row);
+  return writeItemsToSheet(ws, items, isWIP, start.row, cols);
+}
+function fillWorksheetBySchema(ws, items, isWIP, schema){
+  // B-2: 관리자가 저장한 확정 스키마 사용
+  const colMap = schema.col_map || {};
+  const cols = {};
+  for(const [k,v] of Object.entries(colMap)){
+    cols[k] = typeof v === 'number' ? v : colLetterToNumber(v);
+  }
+  return writeItemsToSheet(ws, items, isWIP, schema.start_row, cols);
+}
+function colLetterToNumber(letter){
+  if(typeof letter !== 'string') return letter;
+  let col = 0;
+  for(let i=0; i<letter.length; i++) col = col * 26 + (letter.toUpperCase().charCodeAt(i) - 64);
+  return col;
+}
+function writeItemsToSheet(ws, items, isWIP, startRow, cols){
+  let filled = 0;
+  items.forEach((it, i)=>{
+    const r = startRow + i;
+    const set = (col, val) => { if(col && col>0) ws.getCell(r, col).value = (val===''||val==null)?null:val; };
+    set(cols.itemCode, it.itemCode);
+    set(cols.itemName, it.itemName);
+    set(cols.unit, it.unit);
+    set(cols.location, it.location);
+    set(cols.tagNo, it.tagNo);
+    set(cols.entityQty, it.entityQty);
+    if(it.confirmed){
+      set(cols.pwcQty, it.pwcQty);
+      set(cols.diff, it.pwcQty - it.entityQty);
+    }
+    if(isWIP){
+      set(cols.bomCheck, it.bomCheck);
+      set(cols.compRateE, it.compRate);
+    }
+    set(cols.notes, it.notes);
+    filled++;
+  });
+  return filled;
+}
+
+/* Raw download */
+function buildRawSheet(rows) {
+  const hdr = ['절차','No.','품목코드','품목명','규격','단위','위치','Tag번호','장부수량','PwC수량','차이','상태','차이사유'];
+  const aoa = [['실사결과 Raw Data'], [], hdr, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:14},{wch:6},{wch:18},{wch:32},{wch:16},{wch:8},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:30}];
+  ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:12}}];
+  return ws;
+}
+function toRawRow(it, i, proc){
+  const diff = it.confirmed ? (it.pwcQty - it.entityQty) : '';
+  const stat = it.status==='pending'?'미확인':(it.status==='match'?'일치':'불일치');
+  return [proc,i+1,it.itemCode,it.itemName,it.spec,it.unit,it.location,it.tagNo,it.entityQty, it.confirmed?it.pwcQty:'', diff, stat, it.notes];
+}
+function downloadRaw(){
+  const wb = XLSX.utils.book_new();
+  for(const cat of [['rm','RM_원재료'],['wip','WIP_재공품'],['fg','FG_제품']]){
+    const rows = [];
+    S.sfItems[cat[0]].forEach((it,i)=> rows.push(toRawRow(it,i,'Sheet→Floor')));
+    S.fsItems[cat[0]].forEach((it,i)=> rows.push(toRawRow(it,i,'Floor→Sheet')));
+    XLSX.utils.book_append_sheet(wb, buildRawSheet(rows), cat[1]);
+  }
+  XLSX.writeFile(wb, `재고실사_RawData_${yyyymmdd()}.xlsx`);
+  writeAudit('download',null,null,{type:'raw'});
+  toast('다운로드 완료','success');
+}
+function downloadDiffRaw(){
+  const wb = XLSX.utils.book_new();
+  let total = 0;
+  for(const cat of [['rm','RM_원재료_불일치'],['wip','WIP_재공품_불일치'],['fg','FG_제품_불일치']]){
+    const rows = [];
+    S.sfItems[cat[0]].filter(it=>it.status==='diff').forEach((it,i)=> rows.push(toRawRow(it,i,'Sheet→Floor')));
+    S.fsItems[cat[0]].filter(it=>it.status==='diff').forEach((it,i)=> rows.push(toRawRow(it,i,'Floor→Sheet')));
+    total += rows.length;
+    XLSX.utils.book_append_sheet(wb, buildRawSheet(rows), cat[1]);
+  }
+  if(total===0){ toast('불일치 없음','warn'); return; }
+  XLSX.writeFile(wb, `재고실사_불일치Raw_${yyyymmdd()}.xlsx`);
+  writeAudit('download',null,null,{type:'diff_raw'});
+  toast(`불일치 ${total}건`,'success');
+}
+
+/* ══════════════════ SESSION TEMPLATES (E-2) ══════════════════ */
+async function openTemplatePicker(){
+  const { data } = await supa.from('session_templates').select('*').order('created_at', { ascending:false });
+  const box = document.getElementById('tplpick-list');
+  if(!data || !data.length){
+    box.innerHTML = `<div class="empty-state"><div class="icon">⭐</div><div class="desc">저장된 템플릿 없음</div></div>`;
+  }else{
+    box.innerHTML = data.map(t=>`
+      <div class="dash-session-card" style="cursor:pointer" onclick="applySessionTemplate('${t.id}', ${JSON.stringify(t).replace(/"/g,'&quot;')})">
+        <div>
+          <div class="dash-s-title">${escapeHtml(t.name)}</div>
+          <div class="dash-s-meta">
+            ${t.client_name ? '<span>🏢 '+escapeHtml(t.client_name)+'</span>' : ''}
+            ${t.is_public ? '<span class="status st-active">공용</span>' : '<span class="status st-inactive">개인</span>'}
+            ${t.description ? '<span>'+escapeHtml(t.description)+'</span>':''}
+          </div>
+        </div>
+        <div class="dash-s-btns"><button class="btn btn-p btn-sm">이 템플릿 사용</button></div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('modal-tplpick').classList.add('on');
+}
+window.applySessionTemplate = async function(id, tplJson){
+  try{
+    const tpl = typeof tplJson === 'string' ? JSON.parse(tplJson.replace(/&quot;/g,'"')) : tplJson;
+    closeModal('modal-tplpick');
+    openNewSessionModal();
+    document.getElementById('ns-title').value = tpl.name + ' (복제)';
+    document.getElementById('ns-client').value = tpl.client_name || '';
+    // createNewSession 호출 시 templateData 전달 → 하지만 UI에서 클릭되므로 래핑
+    const btnOrig = document.querySelector('#modal-new .btn.btn-p');
+    btnOrig.onclick = ()=> createNewSession(tpl);
+  }catch(e){ console.error(e); toast('실패','error'); }
+};
+function openSaveAsTemplateModal(){
+  document.getElementById('st-name').value = '';
+  document.getElementById('st-desc').value = '';
+  document.getElementById('st-public').checked = true;
+  document.getElementById('modal-savetpl').classList.add('on');
+}
+async function saveAsSessionTemplate(){
+  const name = document.getElementById('st-name').value.trim();
+  if(!name){ toast('이름 입력','error'); return; }
+  const desc = document.getElementById('st-desc').value.trim();
+  const isPub = document.getElementById('st-public').checked;
+  try{
+    const { error } = await supa.from('session_templates').insert({
+      name, description: desc, client_name: S.session?.client_name,
+      mapping_json: S.mapping, sample_size_json: S.sampleSize,
+      created_by: S.user.id, is_public: isPub
+    });
+    if(error) throw error;
+    closeModal('modal-savetpl');
+    toast('템플릿 저장 완료','success');
+  }catch(ex){ toast('실패: '+ex.message,'error'); }
+}
+
+/* ══════════════════ ADMIN (E-1) ══════════════════ */
+let adminUsersCache = [];
+function switchAdminTab(tab){
+  document.querySelectorAll('#page-admin .admin-tab').forEach(t=>t.classList.remove('active'));
+  event?.target?.classList.add('active');
+  document.querySelectorAll('#page-admin .admin-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  if(tab==='users') renderAdminUsers();
+  if(tab==='stats') renderAdminStats();
+  if(tab==='templates') renderAdminTemplates();
+  if(tab==='sessionTpls') renderAdminSessionTpls();
+  if(tab==='logs') renderAdminLogs();
+}
+async function renderAdmin(){
+  if(S.profile?.role !== 'admin'){ showPage('dashboard'); toast('관리자 권한 필요','error'); return; }
+  renderAdminUsers();
+}
+
+async function renderAdminUsers(){
+  const { data, error } = await supa.from('profiles').select('*').order('created_at', { ascending:false });
+  if(error){ toast('조회 실패: '+error.message,'error'); return; }
+  adminUsersCache = data || [];
+  const q = document.getElementById('adm-user-search').value.toLowerCase();
+  const filtered = adminUsersCache.filter(u => !q || u.full_name.toLowerCase().includes(q) || u.login_id.toLowerCase().includes(q) || u.company_email.toLowerCase().includes(q));
+  const body = document.getElementById('adm-users-body');
+  body.innerHTML = filtered.map(u=>`
+    <tr>
+      <td>${escapeHtml(u.full_name)}</td>
+      <td style="font-family:var(--fm)">${escapeHtml(u.login_id)}</td>
+      <td style="font-size:12px">${escapeHtml(u.company_email)}</td>
+      <td><span class="status ${u.role==='admin'?'st-active':'st-inactive'}">${u.role}</span></td>
+      <td><span class="status ${u.is_active?'st-match':'st-diff'}">${u.is_active?'활성':'비활성'}</span></td>
+      <td style="font-size:11px;color:var(--k3)">${new Date(u.created_at).toLocaleDateString('ko-KR')}</td>
+      <td style="font-size:11px;color:var(--k3)">${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('ko-KR') : '-'}</td>
+      <td>
+        <button class="btn btn-s btn-xs" onclick="adminEditUser('${u.id}')">✏️</button>
+        <button class="btn btn-s btn-xs" onclick="adminToggleActive('${u.id}', ${u.is_active})">${u.is_active?'🚫':'✓'}</button>
+        <button class="btn btn-s btn-xs" onclick="adminViewUserFiles('${u.id}','${escapeAttr(u.full_name)}')">📁</button>
+      </td>
+    </tr>
+  `).join('') || `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--k3)">사용자 없음</td></tr>`;
+}
+window.adminEditUser = async function(uid){
+  const u = adminUsersCache.find(x=>x.id===uid); if(!u) return;
+  const name = prompt('이름', u.full_name); if(name===null) return;
+  const email = prompt('이메일', u.company_email); if(email===null) return;
+  try{
+    const { error } = await supa.from('profiles').update({ full_name: name, company_email: email }).eq('id', uid);
+    if(error) throw error;
+    toast('수정 완료','success'); renderAdminUsers();
+  }catch(ex){ toast('실패: '+ex.message,'error'); }
+};
+window.adminToggleActive = async function(uid, isActive){
+  if(!confirm(isActive ? '비활성화(사용 제한)' : '활성화')) return;
+  try{
+    await supa.from('profiles').update({ is_active: !isActive }).eq('id', uid);
+    toast('변경됨','success'); renderAdminUsers();
+  }catch(ex){ toast('실패: '+ex.message,'error'); }
+};
+window.adminViewUserFiles = async function(uid, name){
+  const { data: sessions } = await supa.from('count_sessions').select('*').eq('owner_id', uid).order('created_at', { ascending:false });
+  const { data: files } = await supa.from('template_files').select('*').eq('uploaded_by', uid).order('created_at', { ascending:false });
+  const body = `
+    <div><strong>📁 ${escapeHtml(name)}님의 파일</strong></div><br>
+    <div style="font-size:13px;margin-bottom:8px"><strong>세션 (${(sessions||[]).length}개)</strong></div>
+    <div style="font-size:12px;max-height:150px;overflow:auto">${(sessions||[]).map(s=>`• ${escapeHtml(s.title)} (${s.status})`).join('<br>') || '없음'}</div>
+    <br><div style="font-size:13px;margin-bottom:8px"><strong>업로드 템플릿 (${(files||[]).length}개)</strong></div>
+    <div style="font-size:12px">${(files||[]).map(f=>`• ${escapeHtml(f.original_name)}`).join('<br>') || '없음'}</div>
+  `;
+  showModal('📁 사용자 파일', body);
+};
+
+async function renderAdminStats(){
+  const { data } = await supa.from('v_user_stats').select('*').order('session_count', { ascending:false });
+  const body = document.getElementById('adm-stats-body');
+  body.innerHTML = (data||[]).map(s=>`
+    <tr>
+      <td><strong>${escapeHtml(s.full_name||'-')}</strong> <span style="color:var(--k3);font-size:11px">(${escapeHtml(s.login_id||'')})</span></td>
+      <td>${s.session_count||0}</td><td>${s.completed_count||0}</td>
+      <td>${s.sample_count||0}</td><td style="color:var(--g);font-weight:700">${s.match_count||0}</td>
+      <td style="color:var(--r);font-weight:700">${s.diff_count||0}</td>
+      <td>${s.pending_count||0}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="7">데이터 없음</td></tr>`;
+
+  // Chart 1: 사용자별 세션
+  const topUsers = (data||[]).slice(0, 10);
+  drawChart('chart-sessions', {
+    type:'bar',
+    data:{ labels: topUsers.map(u=>u.full_name||'-'), datasets:[{ label:'세션 수', data: topUsers.map(u=>u.session_count||0), backgroundColor:'#D04A02' }] },
+    options:{ responsive:true, maintainAspectRatio:false }
+  });
+  // Chart 2: 결과 분포
+  const totalMatch = (data||[]).reduce((a,b)=>a+(b.match_count||0),0);
+  const totalDiff  = (data||[]).reduce((a,b)=>a+(b.diff_count||0),0);
+  const totalPend  = (data||[]).reduce((a,b)=>a+(b.pending_count||0),0);
+  drawChart('chart-results', {
+    type:'doughnut',
+    data:{ labels:['일치','불일치','미확인'], datasets:[{ data:[totalMatch, totalDiff, totalPend], backgroundColor:['#1A7F37','#C0392B','#E0E0E0'] }] },
+    options:{ responsive:true, maintainAspectRatio:false }
+  });
+}
+const _charts = {};
+function drawChart(id, cfg){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  if(_charts[id]) _charts[id].destroy();
+  _charts[id] = new Chart(ctx, cfg);
+}
+
+async function renderAdminTemplates(){
+  const { data: tfs } = await supa.from('template_files').select('*, profiles(full_name, login_id)').order('created_at', { ascending:false });
+  const box = document.getElementById('adm-tpl-list');
+  box.innerHTML = (tfs||[]).map(t=>`
+    <div class="dash-session-card" style="margin-bottom:8px">
+      <div>
+        <div class="dash-s-title">${escapeHtml(t.original_name)} ${t.is_shared ? '<span class="status st-active" style="margin-left:6px">공용</span>' : ''}</div>
+        <div class="dash-s-meta">
+          <span>👤 ${escapeHtml(t.profiles?.full_name||'-')}</span>
+          <span>📅 ${new Date(t.created_at).toLocaleDateString('ko-KR')}</span>
+        </div>
+      </div>
+      <div class="dash-s-btns">
+        ${t.is_shared ? 
+          '<button class="btn btn-s btn-sm" onclick="adminUnshareTemplate(\''+t.id+'\')">🔒 해제</button>' :
+          '<button class="btn btn-b btn-sm" onclick="adminShareTemplate(\''+t.id+'\')">🌐 공용화</button>'}
+        <button class="btn btn-s btn-sm" onclick="adminEditSchema('${t.id}','${escapeAttr(t.original_name)}')">🗺️ 스키마</button>
+        <button class="btn-del" onclick="adminDeleteTemplate('${t.id}','${t.storage_path}')">🗑️</button>
+      </div>
+    </div>
+  `).join('') || `<div class="empty-state"><div class="desc">템플릿 없음</div></div>`;
+}
+async function adminUploadTemplate(e){
+  const file = e.target.files[0]; if(!file) return;
+  showLoading('공용 템플릿 업로드 중...');
+  try{
+    const path = `shared/${Date.now()}_${file.name}`;
+    const { error:upE } = await supa.storage.from('templates').upload(path, file, { upsert: true });
+    if(upE) throw upE;
+    const { error: insE } = await supa.from('template_files').insert({
+      storage_path: path, original_name: file.name, is_shared: true, uploaded_by: S.user.id
+    });
+    if(insE) throw insE;
+    hideLoading(); toast('공용 템플릿 등록','success');
+    renderAdminTemplates();
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); }
+}
+window.adminShareTemplate = async function(id){
+  await supa.from('template_files').update({ is_shared: true }).eq('id', id);
+  toast('공용화','success'); renderAdminTemplates();
+};
+window.adminUnshareTemplate = async function(id){
+  await supa.from('template_files').update({ is_shared: false }).eq('id', id);
+  toast('해제됨','success'); renderAdminTemplates();
+};
+window.adminDeleteTemplate = async function(id, path){
+  if(!confirm('템플릿을 완전히 삭제하시겠습니까?')) return;
+  await supa.storage.from('templates').remove([path]);
+  await supa.from('template_files').delete().eq('id', id);
+  toast('삭제됨','success'); renderAdminTemplates();
+};
+
+/* B-2: 스키마 편집 */
+window.adminEditSchema = async function(tfId, tfName){
+  const { data: sch } = await supa.from('template_schemas').select('*').eq('template_file_id', tfId);
+  const existing = sch || [];
+  const patterns = [
+    {p:'3a', label:'3A S→F RM', cat:'rm', proc:'sheet_to_floor', wip:false},
+    {p:'3e', label:'3E F→S RM', cat:'rm', proc:'floor_to_sheet', wip:false},
+    {p:'3b', label:'3B S→F WIP', cat:'wip', proc:'sheet_to_floor', wip:true},
+    {p:'3f', label:'3F F→S WIP', cat:'wip', proc:'floor_to_sheet', wip:true},
+    {p:'3c', label:'3C S→F FG', cat:'fg', proc:'sheet_to_floor', wip:false},
+    {p:'3g', label:'3G F→S FG', cat:'fg', proc:'floor_to_sheet', wip:false},
+  ];
+  const body = `
+    <div style="font-size:13px;margin-bottom:10px"><strong>${escapeHtml(tfName)}</strong> 시트별 매핑 스키마</div>
+    <div style="font-size:11px;color:var(--k3);margin-bottom:14px">각 시트의 데이터 시작 행(1-based)과 컬럼 위치(A,B,C...) 입력. 비워두면 자동 감지 방식을 사용.</div>
+    ${patterns.map(pt=>{
+      const ex = existing.find(e=>e.sheet_pattern===pt.p);
+      const cm = ex?.col_map || {};
+      return `<div style="border:1px solid var(--k5);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="font-weight:700;margin-bottom:6px">${pt.label}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px">
+          <div>시작행: <input type="number" data-sch="${pt.p}" data-key="start_row" value="${ex?.start_row||''}" style="width:60px;padding:2px 4px"></div>
+          <div>itemCode: <input data-sch="${pt.p}" data-key="itemCode" value="${cm.itemCode||''}" placeholder="B" style="width:40px;padding:2px 4px"></div>
+          <div>itemName: <input data-sch="${pt.p}" data-key="itemName" value="${cm.itemName||''}" placeholder="C" style="width:40px;padding:2px 4px"></div>
+          <div>unit: <input data-sch="${pt.p}" data-key="unit" value="${cm.unit||''}" placeholder="D" style="width:40px;padding:2px 4px"></div>
+          <div>location: <input data-sch="${pt.p}" data-key="location" value="${cm.location||''}" placeholder="E" style="width:40px;padding:2px 4px"></div>
+          <div>tagNo: <input data-sch="${pt.p}" data-key="tagNo" value="${cm.tagNo||''}" placeholder="F" style="width:40px;padding:2px 4px"></div>
+          <div>entityQty: <input data-sch="${pt.p}" data-key="entityQty" value="${cm.entityQty||''}" placeholder="G" style="width:40px;padding:2px 4px"></div>
+          <div>pwcQty: <input data-sch="${pt.p}" data-key="pwcQty" value="${cm.pwcQty||''}" placeholder="H" style="width:40px;padding:2px 4px"></div>
+          <div>diff: <input data-sch="${pt.p}" data-key="diff" value="${cm.diff||''}" placeholder="I" style="width:40px;padding:2px 4px"></div>
+          <div>notes: <input data-sch="${pt.p}" data-key="notes" value="${cm.notes||''}" placeholder="K" style="width:40px;padding:2px 4px"></div>
+        </div>
+      </div>`;
+    }).join('')}
+    <button class="btn btn-p" onclick="saveAllSchemas('${tfId}')">💾 모두 저장</button>
+  `;
+  const editor = document.getElementById('adm-schema-editor');
+  editor.innerHTML = body;
+};
+window.saveAllSchemas = async function(tfId){
+  const patterns = [
+    {p:'3a', cat:'rm', proc:'sheet_to_floor', wip:false},
+    {p:'3e', cat:'rm', proc:'floor_to_sheet', wip:false},
+    {p:'3b', cat:'wip', proc:'sheet_to_floor', wip:true},
+    {p:'3f', cat:'wip', proc:'floor_to_sheet', wip:true},
+    {p:'3c', cat:'fg', proc:'sheet_to_floor', wip:false},
+    {p:'3g', cat:'fg', proc:'floor_to_sheet', wip:false},
+  ];
+  try{
+    await supa.from('template_schemas').delete().eq('template_file_id', tfId);
+    const rows = [];
+    for(const pt of patterns){
+      const inputs = document.querySelectorAll(`[data-sch="${pt.p}"]`);
+      const startInput = Array.from(inputs).find(i=>i.dataset.key==='start_row');
+      if(!startInput || !startInput.value) continue;
+      const col_map = {};
+      inputs.forEach(i=>{
+        if(i.dataset.key!=='start_row' && i.value) col_map[i.dataset.key] = i.value.toUpperCase();
+      });
+      rows.push({
+        template_file_id: tfId, sheet_pattern: pt.p, category: pt.cat,
+        procedure: pt.proc, start_row: +startInput.value, col_map, is_wip: pt.wip
+      });
+    }
+    if(rows.length){
+      const { error } = await supa.from('template_schemas').insert(rows);
+      if(error) throw error;
+    }
+    toast('스키마 저장 완료','success');
+  }catch(ex){ toast('실패: '+ex.message,'error'); }
+};
+
+async function renderAdminSessionTpls(){
+  const { data } = await supa.from('session_templates').select('*, profiles(full_name)').order('created_at',{ascending:false});
+  const body = document.getElementById('adm-stpl-body');
+  body.innerHTML = (data||[]).map(t=>`
+    <tr>
+      <td><strong>${escapeHtml(t.name)}</strong></td>
+      <td>${escapeHtml(t.client_name||'-')}</td>
+      <td>${t.default_pct||'-'}%</td>
+      <td>${escapeHtml(t.profiles?.full_name||'-')}</td>
+      <td>${t.is_public?'🌐 공용':'🔒 개인'}</td>
+      <td style="font-size:11px">${new Date(t.created_at).toLocaleDateString('ko-KR')}</td>
+      <td><button class="btn-del" onclick="adminDeleteSTpl('${t.id}')">🗑️</button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--k3)">없음</td></tr>`;
+}
+window.adminDeleteSTpl = async function(id){
+  if(!confirm('삭제?')) return;
+  await supa.from('session_templates').delete().eq('id', id);
+  toast('삭제됨','success'); renderAdminSessionTpls();
+};
+
+async function renderAdminLogs(){
+  const filter = document.getElementById('adm-log-filter').value;
+  let q = supa.from('audit_logs').select('*, profiles(full_name, login_id)').order('created_at', { ascending:false }).limit(200);
+  if(filter !== 'all') q = q.eq('action', filter);
+  const { data } = await q;
+  const body = document.getElementById('adm-logs-body');
+  body.innerHTML = (data||[]).map(l=>`
+    <tr>
+      <td style="font-size:11px">${new Date(l.created_at).toLocaleString('ko-KR')}</td>
+      <td>${escapeHtml(l.profiles?.full_name||'-')} <span style="color:var(--k3);font-size:10px">(${escapeHtml(l.profiles?.login_id||'')})</span></td>
+      <td><span class="status st-active">${escapeHtml(l.action)}</span></td>
+      <td style="font-size:11px">${escapeHtml(l.entity||'-')}</td>
+      <td style="font-size:11px">${l.device_info==='mobile'?'📱':'🖥️'} ${escapeHtml(l.device_info||'-')}</td>
+      <td style="font-size:11px;color:var(--k3);max-width:300px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(JSON.stringify(l.metadata||{}))}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--k3)">로그 없음</td></tr>`;
+}
+
+/* ══════════════════ INIT ══════════════════ */
+async function init(){
+  // 설정 체크
+  if(SUPABASE_URL.includes('YOUR-')){
+    showModal('⚠️ 설정 필요', 
+      `HTML 파일 상단의 <code>SUPABASE_URL</code>과 <code>SUPABASE_ANON_KEY</code>에<br>본인의 Supabase 프로젝트 값을 입력하세요.<br><br>Settings → API 에서 확인 가능합니다.`);
+    return;
+  }
+  // 세션 복원
+  const { data:{ session } } = await supa.auth.getSession();
+  if(session){
+    try{
+      await loadProfile();
+      showPage('dashboard');
+      await loadSharedTemplateIfAny();
+    }catch(e){ console.error(e); showPage('login'); }
+  } else {
+    showPage('login');
+  }
+  // Auth 이벤트
+  supa.auth.onAuthStateChange((evt, sess)=>{
+    if(evt === 'SIGNED_OUT'){ showPage('login'); }
+  });
+}
+init();
+
+/* ══════════════════ UTILS ══════════════════ */
+function parseNum(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  const n = parseFloat(String(v).replace(/[,\s]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+function fmt(n){ if(n===null||n===undefined||n==='') return ''; return Number(n).toLocaleString(); }
+function yyyymmdd(){ return new Date().toISOString().slice(0,10).replace(/-/g,''); }
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast on ' + (type||'');
+  setTimeout(()=>t.classList.remove('on'), 2400);
+}
+function showModal(title, body){
+  document.getElementById('modal-title').innerHTML = title;
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal(id){
+  if(id) document.getElementById(id).classList.remove('on');
+  else document.getElementById('modal').classList.remove('on');
+}
+function showLoading(msg){
+  document.getElementById('loading-txt').textContent = msg || '처리중...';
+  document.getElementById('loading').classList.add('on');
+}
+function hideLoading(){ document.getElementById('loading').classList.remove('on'); }
+</script>
+</body>
+</html>

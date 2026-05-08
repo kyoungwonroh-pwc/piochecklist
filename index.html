@@ -593,12 +593,10 @@ tr:hover{background:var(--o4)}
     <div class="tab" data-cat="fg" onclick="switchFSTab('fg')">FG 제품 (<span id="fs-fg-n">0</span> / <span id="fs-fg-t">0</span>)</div>
   </div>
   <div class="card">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-      <button class="btn btn-r btn-sm" onclick="resetStep('fs')">🗑️ 초기화</button>
-    </div>
     <div class="dropdown">
-      <div class="search-box">
-        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="width:100%">
+      <div class="search-box" style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="flex:1;min-width:0">
+        <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;white-space:nowrap">🗑️ 초기화</button>
       </div>
       <div class="dropdown-list" id="fs-dropdown"></div>
     </div>
@@ -2104,8 +2102,13 @@ async function updateItem(proc, cat, i, field, value){
   const items = proc==='sf' ? S.sfItems[cat] : S.fsItems[cat];
   const it = items[i];
   if(field==='pwcQty'){
-    it.pwcQty = value==='' ? null : parseNum(value);
-    if(it.confirmed){ it.confirmed = false; it.status = 'pending'; }
+    const newQty = value==='' ? null : parseNum(value);
+    const oldQty = it.pwcQty ?? null;
+    it.pwcQty = newQty;
+    // 실제로 '다른 숫자'로 바뀐 경우에만 확인 해제 (같은 값 재입력/포커스 이탈로 인한 오해제 방지)
+    if(it.confirmed && oldQty !== newQty){
+      it.confirmed = false; it.status = 'pending';
+    }
   } else { it[field] = value; }
   // 즉시 DB 반영 (디바운스 없이 단순 호출)
   if(it._dbId){
@@ -2122,8 +2125,11 @@ async function updateItem(proc, cat, i, field, value){
 async function confirmItem(proc, cat, i){
   const items = proc==='sf' ? S.sfItems[cat] : S.fsItems[cat];
   const it = items[i];
-  // 이미 확인된 상태면 → 토글 OFF (원복)
+  // 이미 확인된 상태면 → 토글 OFF (원복) — 실수 방지용 재확인
   if(it.confirmed){
+    if(!confirm('이 항목의 확인을 취소하시겠습니까?\n(상태가 "미확인"으로 되돌아갑니다.)')){
+      return;
+    }
     it.confirmed = false;
     it.status = 'pending';
     if(it._dbId){
@@ -2415,7 +2421,8 @@ function findColumnsByHeader(ws, startRow){
       if(!v) continue;
       const text = (typeof v === 'object' && v.richText) ? v.richText.map(rt=>rt.text).join('') : String(v);
       const lower = text.toLowerCase();
-      if((lower.includes('test count 번호') || lower.includes('test count number')) && !cols.testNo) cols.testNo = c;
+      // B열(Test count 번호)은 원본 템플릿 값 그대로 유지 → 감지/매핑에서 제외
+      if(false){}
       else if((lower.includes('품목번호') || lower.includes('품목 번호') || lower.includes('item reference') || lower.includes('식별코드') || lower.includes('식별 코드')) && !cols.itemCode) cols.itemCode = c;
       else if((lower.includes('품목명') || lower.includes('item name')) && !cols.itemName) cols.itemName = c;
       else if((lower.includes('측정 단위') || lower.includes('unit of measurement')) && !cols.unit) cols.unit = c;
@@ -2443,6 +2450,8 @@ function fillWorksheetBySchema(ws, items, isWIP, schema){
   const colMap = schema.col_map || {};
   const cols = {};
   for(const [k,v] of Object.entries(colMap)){
+    // Test count 번호(testNo)는 스키마에 있더라도 무시 — 원본 템플릿 값 보존
+    if(k === 'testNo') continue;
     cols[k] = typeof v === 'number' ? v : colLetterToNumber(v);
   }
   return writeItemsToSheet(ws, items, isWIP, schema.start_row, cols);
@@ -2458,18 +2467,8 @@ function writeItemsToSheet(ws, items, isWIP, startRow, cols){
   items.forEach((it, i)=>{
     const r = startRow + i;
     const set = (col, val) => { if(col && col>0) ws.getCell(r, col).value = (val===''||val==null)?null:val; };
-    // Test count 번호 컬럼: 원본 템플릿의 순번(B7=1, B8=2, ...)을 그대로 보존한다.
-    // 즉 이 필드는 매핑/쓰기 대상에서 제외. 원본 값 유지.
-    // 단, 원본 값이 비어있는 상태라면 i+1을 보충 기입 (빈 셀 방지).
-    if(cols.testNo && cols.testNo > 0){
-      const existing = ws.getCell(r, cols.testNo).value;
-      const isEmpty = (existing === null || existing === undefined || existing === '' ||
-                       (typeof existing === 'object' && !('richText' in (existing||{})) && !('formula' in (existing||{})) && !('result' in (existing||{}))));
-      if(isEmpty){
-        ws.getCell(r, cols.testNo).value = i + 1;
-      }
-      // else: 원본 값 그대로 유지 (덮어쓰지 않음)
-    }
+    // Test count 번호(B열): 원본 템플릿 값(B7=1, B8=2, ...)을 그대로 유지.
+    // 매핑/쓰기 대상에서 완전 제외 (cols.testNo 자체를 사용하지 않음).
     set(cols.itemCode, it.itemCode);
     set(cols.itemName, it.itemName);
     set(cols.unit, it.unit);

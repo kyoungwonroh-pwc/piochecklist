@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>재고실사 — PwC 삼일 </title>
+<title>재고실사 — PwC 삼일 v8</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -594,9 +594,9 @@ tr:hover{background:var(--o4)}
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <div class="dropdown" style="flex:0 0 auto">
+      <div class="dropdown" style="flex:1 1 auto;max-width:640px">
         <div class="search-box">
-          <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()">
+          <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="width:100%">
         </div>
         <div class="dropdown-list" id="fs-dropdown"></div>
       </div>
@@ -718,7 +718,8 @@ tr:hover{background:var(--o4)}
         </div>
       </div>
 
-      <div class="card">
+      <!-- hotfix17: 스키마 편집 카드 숨김 (자동 감지 모드를 항상 사용) -->
+      <div class="card" style="display:none" aria-hidden="true">
         <div class="card-title"><div class="ct-left">🗺️ 템플릿 셀 매핑 스키마 (B-2)</div></div>
         <div class="alert alert-info">💡 각 공용 템플릿에 대해 시트별 데이터 시작행/컬럼 매핑을 저장하면, 다음부터 자동 감지 없이 확정적으로 정확한 위치에 데이터가 삽입됩니다.</div>
         <div id="adm-schema-editor"><div class="empty-state"><div class="desc">공용 템플릿을 먼저 업로드하세요.</div></div></div>
@@ -2378,13 +2379,10 @@ async function downloadPioTemplate(){
     for(const m of mappings){
       const ws = findWorksheet(wb, m.patterns);
       if(!ws) continue;
-      // 저장된 스키마 찾기
-      const sch = schemas.find(s => s.sheet_pattern.toLowerCase() === m.patterns[0].toLowerCase());
-      if(sch){
-        fillWorksheetBySchema(ws, m.items, m.isWIP, sch);
-      } else {
+      // ★ hotfix17: 스키마 모드 비활성화 — 항상 자동 감지 모드로 작동 ★
+        //   template_schemas 테이블/데이터는 유지하되, 사용하지 않음.
+        //   헤더 텍스트 기반 자동 감지가 PwC 공용 템플릿에서 더 안전하고 정확.
         fillWorksheet(ws, m.items, m.isWIP);
-      }
     }
 
     const buf = await wb.xlsx.writeBuffer();
@@ -2724,7 +2722,7 @@ async function renderAdminTemplates(){
         ${t.is_shared ? 
           '<button class="btn btn-s btn-sm" onclick="adminUnshareTemplate(\''+t.id+'\')">🔒 해제</button>' :
           '<button class="btn btn-b btn-sm" onclick="adminShareTemplate(\''+t.id+'\')">🌐 공용화</button>'}
-        <button class="btn btn-s btn-sm" onclick="adminEditSchema('${t.id}','${escapeAttr(t.original_name)}')">🗺️ 스키마</button>
+        <!-- hotfix17: 스키마 편집 버튼 제거 (자동 감지 모드 고정) -->
         <button class="btn-del" onclick="adminDeleteTemplate('${t.id}','${t.storage_path}')">🗑️</button>
       </div>
     </div>

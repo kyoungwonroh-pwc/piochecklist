@@ -593,10 +593,12 @@ tr:hover{background:var(--o4)}
     <div class="tab" data-cat="fg" onclick="switchFSTab('fg')">FG 제품 (<span id="fs-fg-n">0</span> / <span id="fs-fg-t">0</span>)</div>
   </div>
   <div class="card">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn btn-r btn-sm" onclick="resetStep('fs')">🗑️ 초기화</button>
+    </div>
     <div class="dropdown">
-      <div class="search-box" style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="flex:1;min-width:0">
-        <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;white-space:nowrap">🗑️ 초기화</button>
+      <div class="search-box">
+        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="width:100%">
       </div>
       <div class="dropdown-list" id="fs-dropdown"></div>
     </div>
@@ -1184,8 +1186,20 @@ async function openSession(id){
     S.sampleSize = sess.sample_size_json || { rm:0, wip:0, fg:0 };
 
     // 2) inventory (row_index 기준 정렬 & 카테고리별 재정렬)
-    const { data: invRaw } = await supa.from('inventory_lists')
-      .select('*').eq('session_id', id).order('row_index', { ascending:true });
+    //    ⚠️ Supabase 기본 1000건 제한 우회 — 페이지네이션으로 전체 로드
+    const invRaw = [];
+    const PAGE = 1000;
+    for(let off=0; ; off+=PAGE){
+      const { data: chunk, error: errInv } = await supa.from('inventory_lists')
+        .select('*').eq('session_id', id)
+        .order('row_index', { ascending:true })
+        .range(off, off + PAGE - 1);
+      if(errInv){ console.warn('[openSession] inventory page error:', errInv); break; }
+      if(!chunk || !chunk.length) break;
+      invRaw.push(...chunk);
+      if(chunk.length < PAGE) break;
+    }
+    console.log('[openSession] inventory total loaded:', invRaw.length);
     S.rawData = { rm:[], wip:[], fg:[] };
     S.inventoryIds = { rm:[], wip:[], fg:[] };
     S.headers = { rm:[], wip:[], fg:[] };
@@ -1211,8 +1225,17 @@ async function openSession(id){
     console.log('[openSession] loaded inventory:', 
       {rm:S.rawData.rm.length, wip:S.rawData.wip.length, fg:S.rawData.fg.length});
 
-    // 3) samples
-    const { data: smp } = await supa.from('count_samples').select('*').eq('session_id', id).order('seq');
+    // 3) samples — 페이지네이션
+    const smp = [];
+    for(let off=0; ; off+=PAGE){
+      const { data: chunk, error: errSmp } = await supa.from('count_samples')
+        .select('*').eq('session_id', id).order('seq')
+        .range(off, off + PAGE - 1);
+      if(errSmp){ console.warn('[openSession] samples page error:', errSmp); break; }
+      if(!chunk || !chunk.length) break;
+      smp.push(...chunk);
+      if(chunk.length < PAGE) break;
+    }
     S.sfItems = { rm:[], wip:[], fg:[] };
     S.fsItems = { rm:[], wip:[], fg:[] };
     for(const s of (smp||[])){
@@ -2435,11 +2458,17 @@ function writeItemsToSheet(ws, items, isWIP, startRow, cols){
   items.forEach((it, i)=>{
     const r = startRow + i;
     const set = (col, val) => { if(col && col>0) ws.getCell(r, col).value = (val===''||val==null)?null:val; };
-    // Test count 번호 컬럼: 원본 템플릿의 순번(B7=1, B8=2, ...)이 ExcelJS 로드 시 유실되는 이슈를
-    // 방지하기 위해, 샘플링된 행마다 1부터 시작하는 순번을 명시적으로 기록한다.
-    // 샘플이 원본 행 범위(기본 45) 안에서만 쓰이면 원본 구조와 동일하게 보존됨.
+    // Test count 번호 컬럼: 원본 템플릿의 순번(B7=1, B8=2, ...)을 그대로 보존한다.
+    // 즉 이 필드는 매핑/쓰기 대상에서 제외. 원본 값 유지.
+    // 단, 원본 값이 비어있는 상태라면 i+1을 보충 기입 (빈 셀 방지).
     if(cols.testNo && cols.testNo > 0){
-      ws.getCell(r, cols.testNo).value = i + 1;
+      const existing = ws.getCell(r, cols.testNo).value;
+      const isEmpty = (existing === null || existing === undefined || existing === '' ||
+                       (typeof existing === 'object' && !('richText' in (existing||{})) && !('formula' in (existing||{})) && !('result' in (existing||{}))));
+      if(isEmpty){
+        ws.getCell(r, cols.testNo).value = i + 1;
+      }
+      // else: 원본 값 그대로 유지 (덮어쓰지 않음)
     }
     set(cols.itemCode, it.itemCode);
     set(cols.itemName, it.itemName);

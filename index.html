@@ -593,12 +593,14 @@ tr:hover{background:var(--o4)}
     <div class="tab" data-cat="fg" onclick="switchFSTab('fg')">FG 제품 (<span id="fs-fg-n">0</span> / <span id="fs-fg-t">0</span>)</div>
   </div>
   <div class="card">
-    <div class="dropdown">
-      <div class="search-box" style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="flex:1;min-width:0">
-        <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;white-space:nowrap">🗑️ 초기화</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div class="dropdown" style="flex:0 0 auto">
+        <div class="search-box">
+          <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()">
+        </div>
+        <div class="dropdown-list" id="fs-dropdown"></div>
       </div>
-      <div class="dropdown-list" id="fs-dropdown"></div>
+      <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;white-space:nowrap;margin-left:auto">🗑️ 초기화</button>
     </div>
     <div style="font-size:12px;color:var(--k3);margin-top:10px;line-height:1.6">
       💡 같은 품목코드라도 로케이션/수량이 다르면 각각 추가 가능.
@@ -2452,7 +2454,13 @@ function fillWorksheetBySchema(ws, items, isWIP, schema){
   for(const [k,v] of Object.entries(colMap)){
     // Test count 번호(testNo)는 스키마에 있더라도 무시 — 원본 템플릿 값 보존
     if(k === 'testNo') continue;
-    cols[k] = typeof v === 'number' ? v : colLetterToNumber(v);
+    const colNum = typeof v === 'number' ? v : colLetterToNumber(v);
+    // 어떤 key이든 B열(2)을 가리키면 무시 (B열은 'Test count 번호' 고정 보호)
+    if(colNum === 2){
+      console.warn(`[schema] '${k}' 가 B열로 설정되어 있음 → 무시 (B열은 Test count 번호 고정)`);
+      continue;
+    }
+    cols[k] = colNum;
   }
   return writeItemsToSheet(ws, items, isWIP, schema.start_row, cols);
 }
@@ -2466,9 +2474,13 @@ function writeItemsToSheet(ws, items, isWIP, startRow, cols){
   let filled = 0;
   items.forEach((it, i)=>{
     const r = startRow + i;
-    const set = (col, val) => { if(col && col>0) ws.getCell(r, col).value = (val===''||val==null)?null:val; };
-    // Test count 번호(B열): 원본 템플릿 값(B7=1, B8=2, ...)을 그대로 유지.
-    // 매핑/쓰기 대상에서 완전 제외 (cols.testNo 자체를 사용하지 않음).
+    // ★ B열(col index 2)은 "Test count 번호" 원본 템플릿 값(1,2,3,...)을 절대 보호.
+    //    관리자 스키마 오설정으로 col_map.itemCode='B' 같이 저장되어 있어도 쓰기를 차단한다.
+    const set = (col, val) => {
+      if(!col || col <= 0) return;
+      if(col === 2) return; // B열 보호
+      ws.getCell(r, col).value = (val===''||val==null) ? null : val;
+    };
     set(cols.itemCode, it.itemCode);
     set(cols.itemName, it.itemName);
     set(cols.unit, it.unit);
@@ -2770,14 +2782,14 @@ window.adminEditSchema = async function(tfId, tfName){
         <div style="font-weight:700;margin-bottom:6px">${pt.label}</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px">
           <div>시작행: <input type="number" data-sch="${pt.p}" data-key="start_row" value="${ex?.start_row||''}" style="width:60px;padding:2px 4px"></div>
-          <div>itemCode: <input data-sch="${pt.p}" data-key="itemCode" value="${cm.itemCode||''}" placeholder="B" style="width:40px;padding:2px 4px"></div>
-          <div>itemName: <input data-sch="${pt.p}" data-key="itemName" value="${cm.itemName||''}" placeholder="C" style="width:40px;padding:2px 4px"></div>
-          <div>unit: <input data-sch="${pt.p}" data-key="unit" value="${cm.unit||''}" placeholder="D" style="width:40px;padding:2px 4px"></div>
-          <div>location: <input data-sch="${pt.p}" data-key="location" value="${cm.location||''}" placeholder="E" style="width:40px;padding:2px 4px"></div>
-          <div>tagNo: <input data-sch="${pt.p}" data-key="tagNo" value="${cm.tagNo||''}" placeholder="F" style="width:40px;padding:2px 4px"></div>
-          <div>entityQty: <input data-sch="${pt.p}" data-key="entityQty" value="${cm.entityQty||''}" placeholder="G" style="width:40px;padding:2px 4px"></div>
-          <div>pwcQty: <input data-sch="${pt.p}" data-key="pwcQty" value="${cm.pwcQty||''}" placeholder="H" style="width:40px;padding:2px 4px"></div>
-          <div>diff: <input data-sch="${pt.p}" data-key="diff" value="${cm.diff||''}" placeholder="I" style="width:40px;padding:2px 4px"></div>
+          <div>itemCode: <input data-sch="${pt.p}" data-key="itemCode" value="${cm.itemCode||''}" placeholder="C" style="width:40px;padding:2px 4px"></div>
+          <div>itemName: <input data-sch="${pt.p}" data-key="itemName" value="${cm.itemName||''}" placeholder="D" style="width:40px;padding:2px 4px"></div>
+          <div>unit: <input data-sch="${pt.p}" data-key="unit" value="${cm.unit||''}" placeholder="E" style="width:40px;padding:2px 4px"></div>
+          <div>location: <input data-sch="${pt.p}" data-key="location" value="${cm.location||''}" placeholder="F" style="width:40px;padding:2px 4px"></div>
+          <div>tagNo: <input data-sch="${pt.p}" data-key="tagNo" value="${cm.tagNo||''}" placeholder="G" style="width:40px;padding:2px 4px"></div>
+          <div>entityQty: <input data-sch="${pt.p}" data-key="entityQty" value="${cm.entityQty||''}" placeholder="H" style="width:40px;padding:2px 4px"></div>
+          <div>pwcQty: <input data-sch="${pt.p}" data-key="pwcQty" value="${cm.pwcQty||''}" placeholder="I" style="width:40px;padding:2px 4px"></div>
+          <div>diff: <input data-sch="${pt.p}" data-key="diff" value="${cm.diff||''}" placeholder="J" style="width:40px;padding:2px 4px"></div>
           <div>notes: <input data-sch="${pt.p}" data-key="notes" value="${cm.notes||''}" placeholder="K" style="width:40px;padding:2px 4px"></div>
         </div>
       </div>`;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>재고실사 — PwC 삼일 </title>
+<title>재고실사 — PwC 삼일</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -344,7 +344,7 @@ tr:hover{background:var(--o4)}
     <span id="nav-user-name">—</span>
     <span class="role-badge" id="nav-user-role">user</span>
   </div>
-  <button class="nav-btn" id="btn-dashboard" onclick="goDashboard()">🏠 대시보드</button>
+  <button class="nav-btn" id="btn-dashboard" onclick="goDashboard()">🏠 HOME</button>
   <button class="nav-btn" id="btn-admin" onclick="showPage('admin')" style="display:none">⚙️ 관리자</button>
   <button class="nav-btn" onclick="handleLogout()">로그아웃</button>
 </nav>
@@ -367,7 +367,6 @@ tr:hover{background:var(--o4)}
         <p class="step-desc" style="margin-bottom:0">진행중인 재고실사 세션을 이어서 작업하거나, 새로 시작하세요.</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-s" onclick="openTemplatePicker()">📋 세션 템플릿으로 시작</button>
         <button class="btn btn-p" onclick="openNewSessionModal()">➕ 새 세션 시작</button>
       </div>
     </div>
@@ -383,7 +382,6 @@ tr:hover{background:var(--o4)}
           <option value="all">전체</option>
           <option value="in_progress">진행중</option>
           <option value="completed">완료</option>
-          <option value="archived">보관</option>
         </select>
       </div>
       <div id="dash-sessions"></div>
@@ -444,6 +442,12 @@ tr:hover{background:var(--o4)}
   </div>
 
   <!-- 일반 사용자용 안내 (공용 템플릿 자동 적용 상태) -->
+  <div class="card" id="tpl-user-info" style="border:2px solid var(--p);background:var(--p2);display:none">
+    <div class="card-title"><div class="ct-left"><span class="tag tag-tpl">TEMPLATE</span>PIO Inventory Count Template</div></div>
+    <div class="alert alert-purple" id="tpl-user-info-msg" style="margin-bottom:0">
+      📌 관리자가 등록한 <strong>공용 PIO 템플릿</strong>이 자동으로 적용됩니다.
+    </div>
+  </div>
 
   <div class="card">
     <div class="card-title"><div class="ct-left">📋 업로드 현황</div></div>
@@ -455,7 +459,7 @@ tr:hover{background:var(--o4)}
     </div>
   </div>
   <div class="footer-nav">
-    <button class="btn btn-s" onclick="goDashboard()">← 대시보드</button>
+    <button class="btn btn-s" onclick="goDashboard()">← HOME</button>
     <button class="btn btn-p" id="btn-next-0" onclick="saveStep0AndNext()" disabled>다음: 헤더 매핑 →</button>
   </div>
 </section>
@@ -463,7 +467,7 @@ tr:hover{background:var(--o4)}
 <!-- STEP 1 -->
 <section class="step" id="step-1">
   <h1 class="step-title">2. 헤더 매핑</h1>
-  <p class="step-desc">실사 리스트 컬럼을 PIO 템플릿 필드와 연결합니다. <span style="color:var(--p);font-weight:700">🤖 AI 제안</span> 버튼으로 과거 매핑 학습값을 적용할 수 있습니다.</p>
+  <p class="step-desc">실사 리스트 컬럼을 PIO 템플릿 필드와 연결합니다.</p>
   <div class="tabs">
     <div class="tab active" data-cat="rm" onclick="switchMapTab('rm')">RM 원재료</div>
     <div class="tab" data-cat="wip" onclick="switchMapTab('wip')">WIP 재공품</div>
@@ -472,7 +476,6 @@ tr:hover{background:var(--o4)}
   <div class="card">
     <div class="card-title">
       <div class="ct-left">PIO Template 필드 ← 실사리스트 컬럼</div>
-      <button class="btn btn-s btn-sm" onclick="applyAIMapping()">🤖 AI 매핑 적용</button>
     </div>
     <div class="alert alert-info">💡 <strong>장부수량</strong>은 반드시 매핑하세요. 저장된 매핑은 다음 실사에서 자동 추천됩니다.</div>
     <div id="mapping-body"></div>
@@ -541,6 +544,7 @@ tr:hover{background:var(--o4)}
       <input type="number" class="num-input" id="sf-add-n" min="1" value="1" style="width:80px">
       <button class="btn btn-p btn-sm" onclick="addMoreSamples()">🎲 샘플 추가</button>
       <button class="btn btn-s btn-sm" onclick="openManualAdd('sf')">🔎 Manual 추가</button>
+      <button class="btn btn-r btn-sm" onclick="resetStep('sf')">🗑️ 초기화</button>
     </div>
   </div>
   <div class="stat-grid" style="margin-bottom:16px">
@@ -575,11 +579,14 @@ tr:hover{background:var(--o4)}
     <div class="tab" data-cat="fg" onclick="switchFSTab('fg')">FG 제품 (<span id="fs-fg-n">0</span> / <span id="fs-fg-t">0</span>)</div>
   </div>
   <div class="card">
-    <div class="dropdown">
-      <div class="search-box">
-        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()">
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <div class="dropdown" style="flex:1;min-width:0">
+        <div class="search-box">
+          <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()">
+        </div>
+        <div class="dropdown-list" id="fs-dropdown"></div>
       </div>
-      <div class="dropdown-list" id="fs-dropdown"></div>
+      <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;align-self:center">🗑️ 초기화</button>
     </div>
     <div style="font-size:12px;color:var(--k3);margin-top:10px;line-height:1.6">
       💡 같은 품목코드라도 로케이션/수량이 다르면 각각 추가 가능.
@@ -626,14 +633,12 @@ tr:hover{background:var(--o4)}
       <button class="btn btn-g" onclick="downloadPioTemplate()" id="btn-dl-pio">📥 PIO 템플릿 다운로드</button>
       <button class="btn btn-s" onclick="downloadRaw()">📄 전체 Raw Data 다운로드</button>
       <button class="btn btn-r" onclick="downloadDiffRaw()">⚠️ 불일치 Raw Data 다운로드</button>
-      <button class="btn btn-b" onclick="openSaveAsTemplateModal()">⭐ 세션 템플릿으로 저장 (E-2)</button>
       <button class="btn btn-s" onclick="markSessionComplete()">✅ 세션 완료 처리</button>
     </div>
     <div id="dl-warn" style="font-size:12px;color:var(--r);margin-top:10px;display:none">⚠️ PIO 템플릿 파일이 업로드되지 않았습니다.</div>
   </div>
   <div class="footer-nav">
     <button class="btn btn-s" onclick="goStep(4)">← 이전</button>
-    <button class="btn btn-s" onclick="goDashboard()">🏠 대시보드로</button>
   </div>
 </section>
 
@@ -649,7 +654,6 @@ tr:hover{background:var(--o4)}
       <div class="admin-tab active" onclick="switchAdminTab('users')">👥 사용자</div>
       <div class="admin-tab" onclick="switchAdminTab('stats')">📊 통계 대시보드</div>
       <div class="admin-tab" onclick="switchAdminTab('templates')">📋 공용 템플릿</div>
-      <div class="admin-tab" onclick="switchAdminTab('sessionTpls')">⭐ 세션 템플릿</div>
       <div class="admin-tab" onclick="switchAdminTab('logs')">📜 감사 로그</div>
     </div>
 
@@ -707,19 +711,6 @@ tr:hover{background:var(--o4)}
       </div>
     </div>
 
-    <div class="admin-panel" id="panel-sessionTpls">
-      <div class="card">
-        <div class="card-title"><div class="ct-left">⭐ 세션 템플릿 관리 (E-2)</div></div>
-        <div class="alert alert-info">💡 자주 쓰는 클라이언트 설정(헤더 매핑/샘플률)을 템플릿화. 사용자가 대시보드에서 원클릭으로 신규 세션을 만들 수 있습니다.</div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>이름</th><th>클라이언트</th><th>기본 샘플률</th><th>작성자</th><th>공개</th><th>생성일</th><th>작업</th></tr></thead>
-            <tbody id="adm-stpl-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
     <div class="admin-panel" id="panel-logs">
       <div class="card">
         <div class="card-title">
@@ -774,44 +765,6 @@ tr:hover{background:var(--o4)}
     <div class="modal-footer">
       <button class="btn btn-s" onclick="closeModal('modal-new')">취소</button>
       <button class="btn btn-p" onclick="createNewSession()">시작</button>
-    </div>
-  </div>
-</div>
-
-<!-- Template Picker Modal (E-2) -->
-<div class="modal-bg" id="modal-tplpick">
-  <div class="modal">
-    <div class="modal-title">⭐ 세션 템플릿 선택</div>
-    <div class="modal-body">
-      <div style="font-size:13px;color:var(--k3);margin-bottom:10px">자주 쓰는 설정을 빠르게 적용하여 새 세션을 시작합니다.</div>
-      <div id="tplpick-list" style="max-height:360px;overflow:auto"></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-s" onclick="closeModal('modal-tplpick')">닫기</button></div>
-  </div>
-</div>
-
-<!-- Save as Session Template (E-2) -->
-<div class="modal-bg" id="modal-savetpl">
-  <div class="modal">
-    <div class="modal-title">⭐ 세션 템플릿으로 저장</div>
-    <div class="modal-body">
-      <div class="auth-field">
-        <label class="auth-label">템플릿 이름</label>
-        <input type="text" class="auth-input" id="st-name" placeholder="예: 삼성전자 기본 설정">
-      </div>
-      <div class="auth-field">
-        <label class="auth-label">설명 (선택)</label>
-        <input type="text" class="auth-input" id="st-desc" placeholder="매핑/샘플률 등 특이사항">
-      </div>
-      <div class="auth-field">
-        <label style="display:flex;gap:8px;align-items:center;font-size:13px">
-          <input type="checkbox" id="st-public" checked> 전사 공개 (모든 사용자가 사용 가능)
-        </label>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-s" onclick="closeModal('modal-savetpl')">취소</button>
-      <button class="btn btn-p" onclick="saveAsSessionTemplate()">저장</button>
     </div>
   </div>
 </div>
@@ -881,7 +834,7 @@ tr:hover{background:var(--o4)}
 /* ════════════════════════════════════════════════════════════
    ★ SUPABASE 설정 — 여기에 본인 프로젝트 값 입력 ★
    ════════════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://rafqfgwtkniyhiwaubnf.supabase.co';
+const SUPABASE_URL = 'https://rafqfgwtkniyhiwaubnf.supabase.co/rest/v1/'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_aOqm2TOAhws802EKvRhVUA_Xr-NoXw7';
 /* ════════════════════════════════════════════════════════════ */
 
@@ -913,7 +866,6 @@ const S = {
 
 const PIO_FIELDS = {
   common: [
-    { key:'testNo',    label:'Test count 번호',          required:false },
     { key:'itemCode',  label:'품목코드',                  required:true  },
     { key:'itemName',  label:'품목명',                    required:true  },
     { key:'unit',      label:'단위',                      required:false },
@@ -940,7 +892,7 @@ function showPage(name){
   document.getElementById('nav').style.display = showNav ? 'flex' : 'none';
   document.getElementById('snav').style.display = (name==='app') ? 'flex' : 'none';
   document.getElementById('nav-pill').style.display = (name==='app') ? 'block' : 'none';
-  document.getElementById('nav-sub').textContent = {login:'', signup:'', dashboard:'Dashboard', app:'재고실사', admin:'관리자'}[name] || '';
+  document.getElementById('nav-sub').textContent = {login:'', signup:'', dashboard:'HOME', app:'재고실사', admin:'관리자'}[name] || '';
   window.scrollTo(0,0);
   if(name==='admin') renderAdmin();
   if(name==='dashboard') renderDashboard();
@@ -1056,12 +1008,11 @@ async function renderDashboard(){
   try{
     const { data: st } = await supa.from('v_user_stats').select('*').eq('user_id', S.user.id).maybeSingle();
     const s = st || {};
+    const inprog = Math.max(0, (s.session_count||0) - (s.completed_count||0));
     document.getElementById('dash-stats').innerHTML = `
       <div class="stat"><div class="stat-label">전체 세션</div><div class="stat-value p">${s.session_count||0}</div></div>
       <div class="stat"><div class="stat-label">완료 세션</div><div class="stat-value g">${s.completed_count||0}</div></div>
-      <div class="stat"><div class="stat-label">실사 건수</div><div class="stat-value">${s.sample_count||0}</div></div>
-      <div class="stat"><div class="stat-label">일치</div><div class="stat-value g">${s.match_count||0}</div></div>
-      <div class="stat"><div class="stat-label">불일치</div><div class="stat-value r">${s.diff_count||0}</div></div>
+      <div class="stat"><div class="stat-label">진행중</div><div class="stat-value">${inprog}</div></div>
     `;
   }catch(e){ console.warn(e); }
   loadDashSessions();
@@ -1142,9 +1093,49 @@ async function deleteSession(id){
 }
 
 /* ══════════════════ SESSION LOAD/OPEN ══════════════════ */
+
+/* 세션 간 상태 격리: openSession 시 호출 */
+function resetSessionState(){
+  S.sessionId = null;
+  S.session = null;
+  S.files = { rm:null, wip:null, fg:null };
+  S.rawData = { rm:[], wip:[], fg:[] };
+  S.inventoryIds = { rm:[], wip:[], fg:[] };
+  S.headers = { rm:[], wip:[], fg:[] };
+  S.mapping = { rm:{}, wip:{}, fg:{} };
+  S.sampleSize = { rm:0, wip:0, fg:0 };
+  S.sfItems = { rm:[], wip:[], fg:[] };
+  S.fsItems = { rm:[], wip:[], fg:[] };
+  S.template = { file:null, buffer:null, storagePath:null, templateFileId:null, sheetNames:[], isShared:false };
+  S.currentStep = 0;
+  S.currentMapTab = 'rm';
+  S.currentSFTab = 'rm';
+  S.currentFSTab = 'rm';
+  // 실시간 채널 해제
+  if(S.realtimeChannel){
+    try{ supa.removeChannel(S.realtimeChannel); }catch(e){}
+    S.realtimeChannel = null;
+  }
+  // 파일 input / 업로드 박스 잔상 제거
+  ['rm','wip','fg','tpl'].forEach(k=>{
+    const fEl = document.getElementById('f-'+k);
+    const upEl = document.getElementById('up-'+k);
+    const fnEl = document.getElementById('fn-'+k);
+    const cntEl = document.getElementById('cnt-'+k);
+    if(fEl) fEl.value = '';
+    if(upEl) upEl.classList.remove('has-file');
+    if(fnEl) fnEl.textContent = '';
+    if(cntEl){ cntEl.textContent = '—'; cntEl.style.color = ''; }
+  });
+  const sharedInfo = document.getElementById('tpl-shared-info');
+  if(sharedInfo){ sharedInfo.style.display='none'; sharedInfo.innerHTML=''; }
+}
+
 async function openSession(id){
   showLoading('세션 불러오는 중...');
   try{
+    // 세션 간 상태 격리: 이전 세션의 메모리/UI 잔상 제거
+    resetSessionState();
     // 1) session
     const { data: sess, error:e1 } = await supa.from('count_sessions').select('*').eq('id', id).single();
     if(e1) throw e1;
@@ -1240,21 +1231,43 @@ async function openSession(id){
 }
 
 function restoreUIFromState(){
-  // Step 0 상태 복원
+  // Step 0 상태 복원 — 데이터 있음/없음 모두 명시적으로 UI 반영 (이전 세션 잔상 제거)
   for(const cat of ['rm','wip','fg']){
+    const fnEl = document.getElementById('fn-'+cat);
+    const upEl = document.getElementById('up-'+cat);
+    const cntEl = document.getElementById('cnt-'+cat);
+    const fInput = document.getElementById('f-'+cat);
     if(S.rawData[cat].length){
       const validCount = getValidRows(cat).length;
-      document.getElementById('fn-'+cat).textContent = `✓ DB 로드 (총 ${S.rawData[cat].length.toLocaleString()} / 유효 ${validCount.toLocaleString()})`;
-      document.getElementById('up-'+cat).classList.add('has-file');
-      document.getElementById('cnt-'+cat).textContent = validCount.toLocaleString();
+      if(fnEl) fnEl.textContent = `✓ DB 로드 (총 ${S.rawData[cat].length.toLocaleString()} / 유효 ${validCount.toLocaleString()})`;
+      if(upEl) upEl.classList.add('has-file');
+      if(cntEl) cntEl.textContent = validCount.toLocaleString();
+    } else {
+      // 빈 상태로 초기화
+      if(fnEl) fnEl.textContent = '';
+      if(upEl) upEl.classList.remove('has-file');
+      if(cntEl){ cntEl.textContent = '—'; cntEl.style.color = ''; }
+      if(fInput) fInput.value = '';
     }
   }
+  // PIO 템플릿 UI
+  const tplFnEl = document.getElementById('fn-tpl');
+  const tplUpEl = document.getElementById('up-tpl');
+  const tplCntEl = document.getElementById('cnt-tpl');
+  const tplFInput = document.getElementById('f-tpl');
   if(S.template.file){
-    document.getElementById('fn-tpl').textContent = `✓ ${S.template.file}` + (S.template.isShared ? ' (공용)' : '');
-    document.getElementById('up-tpl').classList.add('has-file');
-    document.getElementById('cnt-tpl').textContent = '✓';
-    document.getElementById('cnt-tpl').style.color = 'var(--g)';
+    if(tplFnEl) tplFnEl.textContent = `✓ ${S.template.file}` + (S.template.isShared ? ' (공용)' : '');
+    if(tplUpEl) tplUpEl.classList.add('has-file');
+    if(tplCntEl){ tplCntEl.textContent = '✓'; tplCntEl.style.color = 'var(--g)'; }
+  } else {
+    if(tplFnEl) tplFnEl.textContent = '';
+    if(tplUpEl) tplUpEl.classList.remove('has-file');
+    if(tplCntEl){ tplCntEl.textContent = '—'; tplCntEl.style.color = 'var(--p)'; }
+    if(tplFInput) tplFInput.value = '';
   }
+  // 공용 템플릿 안내 박스 (세션 단위로 초기화)
+  const sharedInfo = document.getElementById('tpl-shared-info');
+  if(sharedInfo){ sharedInfo.style.display = 'none'; sharedInfo.innerHTML = ''; }
   checkReadyStep0();
 }
 
@@ -1584,7 +1597,6 @@ function renderMapping(){
       <div class="mapping-label">${fld.label}${fld.required?' <span style="color:var(--r)">*</span>':''}</div>
       <div class="mapping-arrow">←</div>
       <select class="select" onchange="S.mapping['${cat}']['${fld.key}']=this.value; updateValidCount('${cat}')">${opts}</select>
-      <div class="ai-suggest" onclick="applyAIMappingField('${cat}','${fld.key}')">🤖 AI</div>
     </div>`;
   }).join('');
 }
@@ -1630,19 +1642,26 @@ function updateSamplingPools(){
   document.getElementById('btn-next-2').disabled = (S.sfItems.rm.length + S.sfItems.wip.length + S.sfItems.fg.length === 0);
 }
 
-async function sampleOne(cat){
+async function sampleOne(cat, opts){
+  opts = opts || {};
   const valid = getValidRows(cat);
   const n = +document.getElementById('smp-'+cat).value || 0;
   if(n <= 0){ toast('샘플 개수 입력','error'); return; }
   if(n > valid.length){ toast('유효건수 초과','error'); return; }
-  if(S.sfItems[cat].length > 0){
-    if(!confirm(`${CAT_LABEL[cat]} 기존 샘플(${S.sfItems[cat].length}건)이 초기화됩니다. 계속?`)) return;
+  // 기존 샘플이 있을 때만 확인창 (6번 요구)
+  const existCount = S.sfItems[cat].length + S.fsItems[cat].length;
+  if(existCount > 0 && !opts.skipConfirm){
+    if(!confirm(`${CAT_LABEL[cat]} 기존 샘플(${existCount}건)이 모두 초기화됩니다. 계속 하시겠습니까?`)) return;
   }
   showLoading('샘플링 저장 중...');
   try{
     S.sampleSize[cat] = n;
-    // 기존 해당 카테고리 샘플 DB 삭제
-    await supa.from('count_samples').delete().eq('session_id', S.sessionId).eq('category', cat);
+    // 기존 해당 카테고리 샘플 DB 삭제 (SF + FS 모두, procedure 무관)
+    const { error:delErr } = await supa.from('count_samples').delete().eq('session_id', S.sessionId).eq('category', cat);
+    if(delErr) throw delErr;
+    // 메모리에서도 완전 제거
+    S.sfItems[cat] = [];
+    S.fsItems[cat] = [];
 
     const idx = Array.from({length:valid.length}, (_,i)=>i);
     for(let i=idx.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [idx[i],idx[j]] = [idx[j],idx[i]]; }
@@ -1663,24 +1682,57 @@ async function sampleOne(cat){
     ins.sort((a,b)=>a.seq-b.seq).forEach((r,i)=>{ newItems[i]._dbId = r.id; });
 
     S.sfItems[cat] = newItems;
-    S.fsItems[cat] = [];
     await supa.from('count_sessions').update({ sample_size_json: S.sampleSize }).eq('id', S.sessionId);
     await writeAudit('sample', 'count_samples', null, { category: cat, n });
 
     document.getElementById('smp-'+cat+'-status').style.display = 'block';
     document.getElementById('smp-'+cat+'-status').textContent = `✓ 샘플링 완료 (${n}건)`;
-    document.getElementById('btn-next-2').disabled = false;
+    const btn = document.getElementById('btn-next-2');
+    if(btn) btn.disabled = false;
     hideLoading();
     toast(`${CAT_LABEL[cat]} ${n}건`,'success');
   }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); console.error(ex); }
 }
 
 async function runAllSampling(){
-  if(!confirm('전체 샘플링: 기존 샘플이 모두 초기화됩니다. 계속?')) return;
+  const existTotal = ['rm','wip','fg'].reduce((s,c)=> s + S.sfItems[c].length + S.fsItems[c].length, 0);
+  if(existTotal > 0){
+    if(!confirm('기존 샘플이 모두 초기화됩니다. 계속 하시겠습니까?')) return;
+  }
   for(const cat of ['rm','wip','fg']){
     const n = +document.getElementById('smp-'+cat).value || 0;
-    if(n > 0){ await sampleOne(cat); }
+    if(n > 0){ await sampleOne(cat, { skipConfirm:true }); }
   }
+}
+
+/* 초기화 — Step 4(sf) / Step 5(fs) 현재 탭의 샘플 전체 삭제 */
+async function resetStep(proc){
+  const cat = (proc === 'sf') ? S.currentSFTab : S.currentFSTab;
+  const items = (proc === 'sf') ? S.sfItems[cat] : S.fsItems[cat];
+  if(!items.length){ toast('초기화할 항목이 없습니다',''); return; }
+  const label = (proc === 'sf') ? 'Sheet→Floor' : 'Floor→Sheet';
+  if(!confirm(`${label} / ${CAT_CODE[cat]}의 샘플 ${items.length}건이 모두 삭제됩니다. 계속 하시겠습니까?`)) return;
+  showLoading('초기화 중...');
+  try{
+    const procVal = (proc === 'sf') ? 'sheet_to_floor' : 'floor_to_sheet';
+    const { error } = await supa.from('count_samples')
+      .delete()
+      .eq('session_id', S.sessionId)
+      .eq('category', cat)
+      .eq('procedure', procVal);
+    if(error) throw error;
+    if(proc === 'sf'){ S.sfItems[cat] = []; }
+    else            { S.fsItems[cat] = []; }
+    // Step 4(SF) 초기화 시 sampleSize 도 0으로 맞춤
+    if(proc === 'sf'){
+      S.sampleSize[cat] = 0;
+      await supa.from('count_sessions').update({ sample_size_json: S.sampleSize }).eq('id', S.sessionId);
+    }
+    await writeAudit('reset_step', 'count_samples', null, { proc, category: cat });
+    if(proc === 'sf') renderSF(); else renderFS();
+    hideLoading();
+    toast(`${label} / ${CAT_CODE[cat]} 초기화 완료`,'success');
+  }catch(ex){ hideLoading(); toast('실패: '+ex.message,'error'); console.error(ex); }
 }
 
 function mapRow(row, cat){
@@ -1849,6 +1901,24 @@ async function updateItem(proc, cat, i, field, value){
 async function confirmItem(proc, cat, i){
   const items = proc==='sf' ? S.sfItems[cat] : S.fsItems[cat];
   const it = items[i];
+  // 이미 확인된 상태면 → 토글 OFF (원복)
+  if(it.confirmed){
+    it.confirmed = false;
+    it.status = 'pending';
+    if(it._dbId){
+      try{
+        await supa.from('count_samples').update({
+          status: 'pending', confirmed: false,
+          counted_by: S.user.id, counted_at: new Date().toISOString(), device_info: DEVICE_INFO
+        }).eq('id', it._dbId);
+        await writeAudit('unconfirm','count_samples', it._dbId, { proc });
+      }catch(e){ console.warn(e); }
+    }
+    if(proc==='sf') renderSF(); else renderFS();
+    toast('확인 취소','');
+    return;
+  }
+  // 미확인 → 확인
   if(it.pwcQty === null || it.pwcQty === undefined){ toast('PwC 수량 입력 필요','error'); return; }
   it.confirmed = true;
   it.status = (it.pwcQty === it.entityQty) ? 'match' : 'diff';

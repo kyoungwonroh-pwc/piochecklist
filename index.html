@@ -1141,7 +1141,6 @@ function resetSessionState(){
   S.inventoryIds = { rm:[], wip:[], fg:[] };
   S.headers = { rm:[], wip:[], fg:[] };
   S.mapping = { rm:{}, wip:{}, fg:{} };
-  S.mappingSnapshot = null;
   S.sampleSize = { rm:0, wip:0, fg:0 };
   S.sfItems = { rm:[], wip:[], fg:[] };
   S.fsItems = { rm:[], wip:[], fg:[] };
@@ -1182,7 +1181,6 @@ async function openSession(id){
     S.session = sess;
     S.currentStep = sess.current_step || 0;
     S.mapping = sess.mapping_json || { rm:{}, wip:{}, fg:{} };
-    S.mappingSnapshot = JSON.parse(JSON.stringify(S.mapping));
     S.sampleSize = sess.sample_size_json || { rm:0, wip:0, fg:0 };
 
     // 2) inventory (row_index 기준 정렬 & 카테고리별 재정렬)
@@ -1264,8 +1262,6 @@ async function openSession(id){
     restoreUIFromState();
     // 역할별 PIO 템플릿 UI + 공용 템플릿 자동 적용 (일반 사용자)
     try{ await loadSharedTemplateIfAny(); }catch(e){ console.warn(e); }
-    installMappingWatcher();
-    logSessionDiagnostics('openSession');
     goStep(S.currentStep);
     subscribeRealtime();  // C-4 실시간 동기화
     await writeAudit('open_session', 'count_sessions', id, {});
@@ -1274,76 +1270,6 @@ async function openSession(id){
     toast('세션 로드 실패: '+ex.message, 'error');
     console.error(ex);
   }
-}
-
-
-/* ══════════════════ 매핑 스냅샷 복원 (hotfix9) ══════════════════ */
-/**
- * 현재 S.mapping[cat]이 스냅샷 대비 축소(필드 수 감소 또는 매핑 값 유실)되었는지 검사하고,
- * 축소가 감지되면 스냅샷 값을 기반으로 복원한다.
- * 스냅샷은 saveStep1AndNext() 시점에 저장됨.
- */
-function restoreMappingFromSnapshotIfShrunk(cat){
-  if(!S.mappingSnapshot || !S.mappingSnapshot[cat]) return false;
-  const snap = S.mappingSnapshot[cat];
-  if(!S.mapping) S.mapping = { rm:{}, wip:{}, fg:{} };
-  if(!S.mapping[cat]) S.mapping[cat] = {};
-  const cur = S.mapping[cat];
-  let changed = false;
-  for(const key of Object.keys(snap)){
-    const snapV = snap[key];
-    const curV = cur[key];
-    const snapFilled = typeof snapV === 'string' ? snapV.trim() !== '' : snapV != null;
-    const curFilled = typeof curV === 'string' ? curV.trim() !== '' : curV != null;
-    // 스냅샷엔 값이 있는데 현재가 비었으면 복원
-    if(snapFilled && !curFilled){
-      cur[key] = snapV;
-      changed = true;
-    }
-  }
-  if(changed){
-    console.warn(`[snapshotRestore] ${cat.toUpperCase()} 매핑 축소 감지 → 스냅샷 복원 완료`, cur);
-  }
-  return changed;
-}
-
-
-/* ══════════════════ 매핑 Proxy 감시 (hotfix9 디버그) ══════════════════ */
-/**
- * S.mapping 객체를 Proxy로 감쌌다가, 하위 cat 객체의 '필드 삭제' / '값 축소'가 발생하면
- * 콘솔에 경고와 호출 스택을 남긴다. 문제가 어디서 발생하는지 추적하기 위한 디버그 용도.
- * 정상 동작에는 영향 없음. 필요 없으면 추후 제거 가능.
- */
-function installMappingWatcher(){
-  if(!S.mapping) S.mapping = { rm:{}, wip:{}, fg:{} };
-  if(S._mappingWatched) return;
-  const catProxy = (cat) => {
-    const target = S.mapping[cat] || {};
-    return new Proxy(target, {
-      set(t, k, v){
-        const before = t[k];
-        const beforeFilled = typeof before === 'string' ? before.trim() !== '' : before != null;
-        const afterFilled = typeof v === 'string' ? String(v).trim() !== '' : v != null;
-        if(beforeFilled && !afterFilled){
-          console.warn(`[⚠️ mapping shrink] ${cat}.${k}: "${before}" → "${v}"`, new Error().stack);
-        }
-        t[k] = v;
-        return true;
-      },
-      deleteProperty(t, k){
-        if(t[k] !== undefined){
-          console.warn(`[⚠️ mapping delete] ${cat}.${k} was "${t[k]}"`, new Error().stack);
-        }
-        return delete t[k];
-      }
-    });
-  };
-  for(const cat of ['rm','wip','fg']){
-    if(!S.mapping[cat]) S.mapping[cat] = {};
-    S.mapping[cat] = catProxy(cat);
-  }
-  S._mappingWatched = true;
-  console.info('[debug] S.mapping proxy watcher installed');
 }
 
 function restoreUIFromState(){
@@ -1441,42 +1367,10 @@ function goStep(n){
     supa.from('count_sessions').update({ current_step: n }).eq('id', S.sessionId).then(()=>{});
   }
   window.scrollTo(0,0);
-  if(n===1){
-    // 방어: Step 2(헤더매핑) 진입 시 (1) 스냅샷 복원 (2) 빈 cat은 autoMap 복구
-    (async ()=>{
-      for(const cat of ['rm','wip','fg']){
-        if(!S.rawData[cat] || !S.rawData[cat].length) continue;
-        // (1) 스냅샷과 비교하여 축소된 경우 복원
-        restoreMappingFromSnapshotIfShrunk(cat);
-        // (2) 그래도 비어있으면 autoMap
-        const m = S.mapping && S.mapping[cat];
-        const hasAny = m && Object.keys(m).some(k => {
-          const v = m[k];
-          return typeof v === 'string' ? v.trim() !== '' : v != null;
-        });
-        if(!hasAny){
-          console.warn(`[goStep 1] ${cat.toUpperCase()} 매핑 비어있음 → autoMap 복구`);
-          try{ await autoMap(cat); }catch(e){ console.error(e); }
-        }
-      }
-      renderMapping();
-    })();
-  }
+  if(n===1) renderMapping();
   if(n===2) updateSamplingPools();
-  if(n===3){
-    for(const cat of ['rm','wip','fg']){
-      if(!S.rawData[cat] || !S.rawData[cat].length) continue;
-      restoreMappingFromSnapshotIfShrunk(cat);
-    }
-    renderSF();
-  }
-  if(n===4){
-    for(const cat of ['rm','wip','fg']){
-      if(!S.rawData[cat] || !S.rawData[cat].length) continue;
-      restoreMappingFromSnapshotIfShrunk(cat);
-    }
-    renderFS();
-  }
+  if(n===3) renderSF();
+  if(n===4) renderFS();
   if(n===5) renderResult();
 }
 document.querySelectorAll('.sn').forEach(el=> el.addEventListener('click',()=> goStep(+el.dataset.step)));
@@ -1489,7 +1383,6 @@ document.querySelectorAll('.sn').forEach(el=> el.addEventListener('click',()=> g
  * X 버튼 클릭은 stopPropagation 으로 이 핸들러에 닿지 않음.
  */
 function onUploadBoxClick(ev, cat){
-  // 이미 업로드된 상태에서 다시 클릭하면 교체 안내
   if(S.rawData[cat] && S.rawData[cat].length){
     if(!confirm(`${CAT_CODE[cat]} 파일을 다른 파일로 교체하시겠습니까?\n(기존 업로드 데이터와 매핑이 대체됩니다.)`)) return;
   }
@@ -1498,12 +1391,10 @@ function onUploadBoxClick(ev, cat){
 }
 
 /**
- * 업로드한 파일 삭제: 메모리 + DB(inventory_lists) 함께 정리한다.
- * 매핑/샘플/실사기록은 세션 자체를 리셋하지 않으므로 유지되지만,
- * 해당 카테고리의 원본 행이 사라지므로 이후 단계 진행 시 재업로드가 필요함.
+ * 업로드한 파일 삭제: 메모리 + DB(inventory_lists) 함께 정리.
  */
 async function deleteUploadedFile(cat){
-  if(!S.rawData[cat] || !S.rawData[cat].length){ return; }
+  if(!S.rawData[cat] || !S.rawData[cat].length) return;
   const ok = confirm(`${CAT_CODE[cat]} 업로드 파일을 삭제하시겠습니까?\n업로드한 데이터가 모두 제거되며, 되돌릴 수 없습니다.`);
   if(!ok) return;
   showLoading(`${CAT_CODE[cat]} 데이터 삭제 중...`);
@@ -1513,17 +1404,14 @@ async function deleteUploadedFile(cat){
         .eq('session_id', S.sessionId)
         .eq('category', cat);
     }
-    // 메모리 상태 초기화
     S.rawData[cat] = [];
     S.headers[cat] = [];
     S.inventoryIds[cat] = [];
     S.files[cat] = '';
     if(S.mapping && S.mapping[cat]) S.mapping[cat] = {};
-    // 세션 mapping_json 에도 반영
     if(S.sessionId){
       try{ await supa.from('count_sessions').update({ mapping_json: S.mapping }).eq('id', S.sessionId); }catch(e){}
     }
-    // UI 갱신
     const fnEl = document.getElementById('fn-'+cat);
     const upEl = document.getElementById('up-'+cat);
     const cntEl = document.getElementById('cnt-'+cat);
@@ -1542,32 +1430,6 @@ async function deleteUploadedFile(cat){
     console.error('[deleteUploadedFile]', e);
     toast('삭제 실패: ' + (e?.message || e), 'error');
   }
-}
-
-/**
- * 세션 재진입 시 진단 로그 — 유효 건수 불일치 원인 파악용.
- * 콘솔(F12)에서 'sessionDiag' 로 필터링 가능.
- */
-function logSessionDiagnostics(where){
-  try{
-    for(const cat of ['rm','wip','fg']){
-      const rows = S.rawData[cat] || [];
-      const m = S.mapping && S.mapping[cat];
-      const key = m?.entityQty;
-      const firstRow = rows[0] || {};
-      const sampleVal = key ? firstRow[key] : '(매핑없음)';
-      const validCount = getValidRows(cat).length;
-      console.log(`[sessionDiag:${where}] ${cat.toUpperCase()}`, {
-        totalRows: rows.length,
-        validRows: validCount,
-        mappingEntityQty: key || '(empty)',
-        headers: S.headers[cat],
-        firstRowSample: firstRow,
-        firstRowEntityQty: sampleVal,
-        firstRowEntityQtyType: typeof sampleVal,
-      });
-    }
-  }catch(e){ console.warn('[sessionDiag] fail', e); }
 }
 
 async function loadFile(e, cat){
@@ -1616,7 +1478,6 @@ async function loadFile(e, cat){
       S.headers[cat] = Object.keys(rows[0]);
       S.files[cat] = file.name;
       await autoMap(cat);
-      installMappingWatcher();
 
       // DB 저장 (기존 해당 카테고리 삭제 → bulk insert)
       await supa.from('inventory_lists').delete().eq('session_id', S.sessionId).eq('category', cat);
@@ -1818,7 +1679,7 @@ const AUTO_HINTS = {
   // Tag/Sheet/Row 번호 (실사표 일련번호)
   tagNo: [
     'tag no','tag#','tag num','tag','sheet no','sheet','row no','row#','row','line no','seq','seq no',
-    'serial','serial no','일련번호','순번','번호','no.'
+    'serial','serial no','일련번호','순번','번호','no.','no/구분','no 구분','구분'
   ],
   // Test count 번호 (템플릿 원본 유지 정책: 매핑 안 함)
   testNo: ['test','test count','test no','test count 번호'],
@@ -1843,11 +1704,10 @@ async function autoMap(cat){
   const fields = [...PIO_FIELDS.common, ...(cat==='wip'?PIO_FIELDS.wip_extra:[])];
   if(!S.mapping[cat]) S.mapping[cat] = {};
 
-  // "이미 매핑돼 있음" 판정: truthy(비어있지 않은 문자열)
-  const isMapped = (fieldKey) => {
-    const v = S.mapping[cat][fieldKey];
-    return typeof v === 'string' ? v.trim() !== '' : v != null;
-  };
+  // 헤더 정규화: 공백/슬래시/하이픈/언더바/괄호/마침표/쉼표 등 제거 + 소문자화
+  // 예: "규 격       " → "규격", "NO/구분" → "no구분"
+  const norm = (s) => String(s||'').toLowerCase().replace(/[\s\/\-_\(\)\[\]\.,:;#*]+/g,'').trim();
+  const headerNormList = headers.map(h => ({ raw: h, norm: norm(h) }));
 
   // ── (1) mapping_history 우선 조회 ──────────────────────
   try{
@@ -1857,51 +1717,40 @@ async function autoMap(cat){
       .order('use_count', { ascending: false })
       .limit(500);
     if(hist && hist.length){
-      const headerLowerMap = {};
-      headers.forEach(h => headerLowerMap[String(h).toLowerCase().trim()] = h);
       for(const row of hist){
         const fieldKey = row.pio_field;
-        if(!fieldKey || isMapped(fieldKey)) continue; // 이미 매핑돼 있으면 skip
-        const srcLower = String(row.source_header||'').toLowerCase().trim();
-        if(!srcLower) continue;
-        // 1-a) 정확 일치
-        if(headerLowerMap[srcLower]){
-          S.mapping[cat][fieldKey] = headerLowerMap[srcLower];
-          continue;
-        }
+        if(!fieldKey || S.mapping[cat][fieldKey]) continue; // 이미 매핑돼 있으면 skip
+        const srcNorm = norm(row.source_header);
+        if(!srcNorm) continue;
+        // 1-a) 정규화 정확 일치
+        const exact = headerNormList.find(x => x.norm === srcNorm);
+        if(exact){ S.mapping[cat][fieldKey] = exact.raw; continue; }
         // 1-b) 부분 일치 (양방향 includes)
-        for(const h of headers){
-          const hl = String(h).toLowerCase().trim();
-          if(hl.includes(srcLower) || srcLower.includes(hl)){
-            S.mapping[cat][fieldKey] = h; break;
-          }
-        }
+        const partial = headerNormList.find(x => x.norm && (x.norm.includes(srcNorm) || srcNorm.includes(x.norm)));
+        if(partial){ S.mapping[cat][fieldKey] = partial.raw; }
       }
     }
   }catch(e){ console.warn('[autoMap] mapping_history 조회 실패, AUTO_HINTS로 진행:', e); }
 
   // ── (2) AUTO_HINTS 사전 보충 ────────────────────────────
   for(const fld of fields){
-    if(isMapped(fld.key)) continue; // 이미 이력으로 매핑됐으면 skip (빈 문자열도 미매핑으로 판정)
+    if(S.mapping[cat][fld.key]) continue;
     const hints = AUTO_HINTS[fld.key] || [];
     let matched = '';
     for(const hint of hints){
-      const hintL = hint.toLowerCase();
-      for(const h of headers){
-        if(String(h).toLowerCase().trim().includes(hintL)){ matched = h; break; }
-      }
-      if(matched) break;
+      const hintN = norm(hint);
+      if(!hintN) continue;
+      // 2-a) 정규화 정확 일치 우선
+      const exact = headerNormList.find(x => x.norm === hintN);
+      if(exact){ matched = exact.raw; break; }
+      // 2-b) 부분 일치 (헤더가 힌트를 포함)
+      const partial = headerNormList.find(x => x.norm.includes(hintN));
+      if(partial){ matched = partial.raw; break; }
     }
-    // 매칭 안 되면 현재 값 보존 (기존 값이 빈 문자열이었더라도 덮어쓰지 않음)
-    if(matched) S.mapping[cat][fld.key] = matched;
-    else if(!(fld.key in S.mapping[cat])) S.mapping[cat][fld.key] = '';
+    S.mapping[cat][fld.key] = matched;
   }
-  // Step 2 UI 열려 있고 현재 탭과 일치하면 리렌더 (다른 탭은 사용자가 탭 전환 시 renderMapping이 다시 호출됨)
-  try{
-    if(typeof renderMapping === 'function' && S.currentStep === 1 && S.currentMapTab === cat){
-      renderMapping();
-    }
-  }catch(e){}
+  // Step 2 UI 열려 있으면 리렌더 (파일 업로드 후 매핑 화면 첫 진입 시에도 적용되도록)
+  try{ if(typeof renderMapping === 'function' && S.currentStep === 1) renderMapping(); }catch(e){}
 }
 
 
@@ -1927,47 +1776,16 @@ async function saveMappingToHistory(cat){
 }
 
 function getValidRows(cat){
-  const rows = S.rawData[cat] || [];
-  if(!rows.length) return rows;
-  const m = S.mapping && S.mapping[cat];
-  let key = m && m.entityQty ? String(m.entityQty).trim() : '';
-  if(!key) return rows; // 매핑 없음 → 전체를 유효로 (건수 표시만 원본과 동일)
-
-  // 키 정합성 검증: rawData의 첫 행에 해당 key 가 존재하는지 확인.
-  // (헤더 공백/개행/대소문자 차이로 mismatch 가 발생한 경우 보정 — 동기)
-  const firstRow = rows[0] || {};
-  if(!Object.prototype.hasOwnProperty.call(firstRow, key)){
-    const norm = s => String(s||'').toLowerCase().replace(/\s+/g,'').trim();
-    const target = norm(key);
-    const hit = Object.keys(firstRow).find(k => norm(k) === target);
-    if(hit){
-      key = hit;
-      // 교정된 키를 S.mapping에 반영 (다음 호출부터 빠른 경로 타도록)
-      try{ if(S.mapping && S.mapping[cat]) S.mapping[cat].entityQty = hit; }catch(_){}
-    } else {
-      // 매칭 실패 → 유효 필터 포기, 전체 반환 (autoMap 재실행은 saveStep1AndNext에서 일괄 처리)
-      return rows;
-    }
-  }
-  return rows.filter(r => parseNum(r && r[key]) > 0);
+  const m = S.mapping[cat];
+  if(!m || !m.entityQty) return S.rawData[cat];
+  return S.rawData[cat].filter(r=> parseNum(r[m.entityQty]) > 0);
 }
 
 /* ══════════════════ MAPPING UI ══════════════════ */
 function switchMapTab(cat){
   S.currentMapTab = cat;
   document.querySelectorAll('#step-1 .tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===cat));
-  // 방어: 탭 전환 시 해당 카테고리 매핑이 비어있으면 autoMap 복구 후 렌더
-  const m = S.mapping && S.mapping[cat];
-  const hasAny = m && Object.keys(m).some(k => {
-    const v = m[k];
-    return typeof v === 'string' ? v.trim() !== '' : v != null;
-  });
-  if(!hasAny && S.rawData[cat] && S.rawData[cat].length){
-    console.warn(`[switchMapTab] ${cat.toUpperCase()} 매핑 비어있음 → autoMap 복구`);
-    autoMap(cat).then(()=> renderMapping()).catch(e=> { console.error(e); renderMapping(); });
-  } else {
-    renderMapping();
-  }
+  renderMapping();
 }
 function renderMapping(){
   const cat = S.currentMapTab;
@@ -1995,43 +1813,11 @@ function updateValidCount(cat){
 }
 
 async function saveStep1AndNext(){
-  // 매핑 저장 + 학습 (방어적 3단계: 재매핑 보장 → 정규화(값 trim) → DB 저장 + 스냅샷)
+  // 매핑 저장 + 학습
   try{
-    // [1단계] 업로드된 각 카테고리의 매핑이 비어있으면 autoMap 재실행하여 복구
-    for(const cat of ['rm','wip','fg']){
-      if(!S.rawData[cat] || !S.rawData[cat].length) continue;
-      const m = S.mapping && S.mapping[cat];
-      const hasAnyMapping = m && Object.keys(m).some(k => {
-        const v = m[k];
-        return typeof v === 'string' ? v.trim() !== '' : v != null;
-      });
-      if(!hasAnyMapping){
-        console.warn(`[saveStep1AndNext] ${cat.toUpperCase()} 매핑 비어있음 → autoMap 재실행`);
-        try{ await autoMap(cat); }catch(e){ console.error('autoMap 재실행 실패', e); }
-      }
-    }
-
-    // [2단계] 각 카테고리별로 정규화(trim)만 수행. 빈 문자열도 그대로 유지하여 키 구조 보존.
-    //         이는 이후 autoMap 재호출 시 "이미 처리된 필드" 구분을 돕고, DB에 모든 키가 남도록 함.
-    for(const cat of ['rm','wip','fg']){
-      const m = (S.mapping && S.mapping[cat]) || {};
-      const nm = {};
-      for(const k of Object.keys(m)){
-        const v = m[k];
-        if(typeof v === 'string') nm[k] = v.trim();
-        else if(v != null) nm[k] = v;
-        else nm[k] = '';
-      }
-      if(!S.mapping) S.mapping = { rm:{}, wip:{}, fg:{} };
-      S.mapping[cat] = nm;
-    }
-
-    // [3단계] 스냅샷 저장 (매핑 유실 시 복원용) + DB 저장 + 학습
-    S.mappingSnapshot = JSON.parse(JSON.stringify(S.mapping));
     await supa.from('count_sessions').update({ mapping_json: S.mapping }).eq('id', S.sessionId);
     for(const cat of ['rm','wip','fg']) if(S.rawData[cat].length) saveMappingToHistory(cat);
-  }catch(e){ console.warn('[saveStep1AndNext]', e); }
-  logSessionDiagnostics('saveStep1AndNext');
+  }catch(e){ console.warn(e); }
   goStep(2);
 }
 

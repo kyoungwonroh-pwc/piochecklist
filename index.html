@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>재고실사 — PwC 삼일</title>
+<title>재고실사 — PwC 삼일 </title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1368,7 +1368,25 @@ function goStep(n){
     supa.from('count_sessions').update({ current_step: n }).eq('id', S.sessionId).then(()=>{});
   }
   window.scrollTo(0,0);
-  if(n===1) renderMapping();
+  if(n===1){
+    // 방어: Step 2(헤더매핑) 진입 시 업로드된 카테고리 중 매핑이 비어있으면 autoMap 재실행
+    (async ()=>{
+      let changed = false;
+      for(const cat of ['rm','wip','fg']){
+        if(!S.rawData[cat] || !S.rawData[cat].length) continue;
+        const m = S.mapping && S.mapping[cat];
+        const hasAny = m && Object.keys(m).some(k => {
+          const v = m[k];
+          return typeof v === 'string' ? v.trim() !== '' : v != null;
+        });
+        if(!hasAny){
+          console.warn(`[goStep 1] ${cat.toUpperCase()} 매핑 비어있음 → autoMap 복구`);
+          try{ await autoMap(cat); changed = true; }catch(e){ console.error(e); }
+        }
+      }
+      renderMapping();
+    })();
+  }
   if(n===2) updateSamplingPools();
   if(n===3) renderSF();
   if(n===4) renderFS();
@@ -1782,8 +1800,12 @@ async function autoMap(cat){
     }
     S.mapping[cat][fld.key] = matched;
   }
-  // Step 2 UI 열려 있으면 리렌더 (파일 업로드 후 매핑 화면 첫 진입 시에도 적용되도록)
-  try{ if(typeof renderMapping === 'function' && S.currentStep === 1) renderMapping(); }catch(e){}
+  // Step 2 UI 열려 있고 현재 탭과 일치하면 리렌더 (다른 탭은 사용자가 탭 전환 시 renderMapping이 다시 호출됨)
+  try{
+    if(typeof renderMapping === 'function' && S.currentStep === 1 && S.currentMapTab === cat){
+      renderMapping();
+    }
+  }catch(e){}
 }
 
 
@@ -1816,24 +1838,19 @@ function getValidRows(cat){
   if(!key) return rows; // 매핑 없음 → 전체를 유효로 (건수 표시만 원본과 동일)
 
   // 키 정합성 검증: rawData의 첫 행에 해당 key 가 존재하는지 확인.
-  // (헤더 공백/개행/대소문자 차이로 mismatch 가 발생한 경우 보정)
+  // (헤더 공백/개행/대소문자 차이로 mismatch 가 발생한 경우 보정 — 동기)
   const firstRow = rows[0] || {};
-  const rawKeys = Object.keys(firstRow);
   if(!Object.prototype.hasOwnProperty.call(firstRow, key)){
-    // 1) 공백/대소문자 무시 매칭 시도
     const norm = s => String(s||'').toLowerCase().replace(/\s+/g,'').trim();
     const target = norm(key);
-    const hit = rawKeys.find(k => norm(k) === target);
+    const hit = Object.keys(firstRow).find(k => norm(k) === target);
     if(hit){
       key = hit;
+      // 교정된 키를 S.mapping에 반영 (다음 호출부터 빠른 경로 타도록)
+      try{ if(S.mapping && S.mapping[cat]) S.mapping[cat].entityQty = hit; }catch(_){}
     } else {
-      // 2) 매칭 실패 시 폴백 — 이력/힌트 기반으로 재매핑 시도
-      try{
-        if(S.headers[cat] && S.headers[cat].length) autoMap(cat);
-        const m2 = S.mapping && S.mapping[cat];
-        key = m2 && m2.entityQty ? String(m2.entityQty).trim() : '';
-        if(!key || !Object.prototype.hasOwnProperty.call(firstRow, key)) return rows;
-      }catch(e){ return rows; }
+      // 매칭 실패 → 유효 필터 포기, 전체 반환 (autoMap 재실행은 saveStep1AndNext에서 일괄 처리)
+      return rows;
     }
   }
   return rows.filter(r => parseNum(r && r[key]) > 0);
@@ -1843,7 +1860,18 @@ function getValidRows(cat){
 function switchMapTab(cat){
   S.currentMapTab = cat;
   document.querySelectorAll('#step-1 .tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===cat));
-  renderMapping();
+  // 방어: 탭 전환 시 해당 카테고리 매핑이 비어있으면 autoMap 복구 후 렌더
+  const m = S.mapping && S.mapping[cat];
+  const hasAny = m && Object.keys(m).some(k => {
+    const v = m[k];
+    return typeof v === 'string' ? v.trim() !== '' : v != null;
+  });
+  if(!hasAny && S.rawData[cat] && S.rawData[cat].length){
+    console.warn(`[switchMapTab] ${cat.toUpperCase()} 매핑 비어있음 → autoMap 복구`);
+    autoMap(cat).then(()=> renderMapping()).catch(e=> { console.error(e); renderMapping(); });
+  } else {
+    renderMapping();
+  }
 }
 function renderMapping(){
   const cat = S.currentMapTab;
@@ -1871,10 +1899,24 @@ function updateValidCount(cat){
 }
 
 async function saveStep1AndNext(){
-  // 매핑 저장 + 학습
+  // 매핑 저장 + 학습 (방어적 2단계: 재매핑 보장 → 정규화 → DB 저장)
   try{
-    // 직렬화 가능한 매핑만 남기고 trim 적용하여 DB 저장
-    const normalized = {};
+    // [1단계] 업로드된 각 카테고리의 매핑이 비어있으면 autoMap 재실행하여 복구
+    for(const cat of ['rm','wip','fg']){
+      if(!S.rawData[cat] || !S.rawData[cat].length) continue;
+      const m = S.mapping && S.mapping[cat];
+      const hasAnyMapping = m && Object.keys(m).some(k => {
+        const v = m[k];
+        return typeof v === 'string' ? v.trim() !== '' : v != null;
+      });
+      if(!hasAnyMapping){
+        console.warn(`[saveStep1AndNext] ${cat.toUpperCase()} 매핑 비어있음 → autoMap 재실행`);
+        try{ await autoMap(cat); }catch(e){ console.error('autoMap 재실행 실패', e); }
+      }
+    }
+
+    // [2단계] 각 카테고리별로 정규화(trim + 빈 문자열 제거)하되 S.mapping 객체 자체는 교체하지 않고
+    //         개별 카테고리만 덮어쓴다. 이로써 예상치 못한 cat 키가 있어도 보존.
     for(const cat of ['rm','wip','fg']){
       const m = (S.mapping && S.mapping[cat]) || {};
       const nm = {};
@@ -1883,12 +1925,14 @@ async function saveStep1AndNext(){
         if(typeof v === 'string'){ const t = v.trim(); if(t) nm[k] = t; }
         else if(v != null) nm[k] = v;
       }
-      normalized[cat] = nm;
+      if(!S.mapping) S.mapping = { rm:{}, wip:{}, fg:{} };
+      S.mapping[cat] = nm;
     }
-    S.mapping = normalized;
+
+    // [3단계] DB 저장 + 이력 저장
     await supa.from('count_sessions').update({ mapping_json: S.mapping }).eq('id', S.sessionId);
     for(const cat of ['rm','wip','fg']) if(S.rawData[cat].length) saveMappingToHistory(cat);
-  }catch(e){ console.warn(e); }
+  }catch(e){ console.warn('[saveStep1AndNext]', e); }
   logSessionDiagnostics('saveStep1AndNext');
   goStep(2);
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>재고실사 — PwC 삼일 v8</title>
+<title>재고실사 — PwC 삼일</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -270,6 +270,7 @@ tr:hover{background:var(--o4)}
   .modal-row{padding:14px;max-height:92vh}
 }
 
+.btn-confirm,.btn-confirm.done{white-space:nowrap;word-break:keep-all}
 </style>
 </head>
 <body>
@@ -477,7 +478,7 @@ tr:hover{background:var(--o4)}
     <div class="card-title">
       <div class="ct-left">PIO Template 필드 ← 실사리스트 컬럼</div>
     </div>
-    <div class="alert alert-info">💡 <strong>장부수량</strong>은 반드시 매핑하세요. 저장된 매핑은 다음 실사에서 자동 추천됩니다.</div>
+    <div class="alert alert-info">💡 <strong>장부수량</strong>은 반드시 매핑하세요(장부 ↔ 실사 비교의 기준). 사용할수록 자동 매핑이 정확해집니다.</div>
     <div id="mapping-body"></div>
   </div>
   <div class="footer-nav">
@@ -579,14 +580,12 @@ tr:hover{background:var(--o4)}
     <div class="tab" data-cat="fg" onclick="switchFSTab('fg')">FG 제품 (<span id="fs-fg-n">0</span> / <span id="fs-fg-t">0</span>)</div>
   </div>
   <div class="card">
-    <div style="display:flex;gap:8px;align-items:flex-start">
-      <div class="dropdown" style="flex:1;min-width:0">
-        <div class="search-box">
-          <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()">
-        </div>
-        <div class="dropdown-list" id="fs-dropdown"></div>
+    <div class="dropdown">
+      <div class="search-box" style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="fs-search" placeholder="품목코드 또는 품목명 입력..." autocomplete="off" oninput="onFSSearch()" onfocus="onFSSearch()" style="flex:1;min-width:0">
+        <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;white-space:nowrap">🗑️ 초기화</button>
       </div>
-      <button class="btn btn-r btn-sm" onclick="resetStep('fs')" style="flex:0 0 auto;align-self:center">🗑️ 초기화</button>
+      <div class="dropdown-list" id="fs-dropdown"></div>
     </div>
     <div style="font-size:12px;color:var(--k3);margin-top:10px;line-height:1.6">
       💡 같은 품목코드라도 로케이션/수량이 다르면 각각 추가 가능.
@@ -704,11 +703,6 @@ tr:hover{background:var(--o4)}
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title"><div class="ct-left">🗺️ 템플릿 셀 매핑 스키마 (B-2)</div></div>
-        <div class="alert alert-info">💡 각 공용 템플릿에 대해 시트별 데이터 시작행/컬럼 매핑을 저장하면, 다음부터 자동 감지 없이 확정적으로 정확한 위치에 데이터가 삽입됩니다.</div>
-        <div id="adm-schema-editor"><div class="empty-state"><div class="desc">공용 템플릿을 먼저 업로드하세요.</div></div></div>
-      </div>
     </div>
 
     <div class="admin-panel" id="panel-logs">
@@ -825,6 +819,32 @@ tr:hover{background:var(--o4)}
     </div>
     <div class="modal-footer">
       <button class="btn btn-s" onclick="closeModal('modal-manual-add')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 다중 시트 선택 팝업 (Step 0 파일 업로드 시) -->
+<div class="modal-bg" id="modal-sheet-picker">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" style="justify-content:space-between;display:flex;align-items:center">
+      <span>📑 사용할 시트 선택 — <span id="msp-cat-label" style="color:var(--p)"></span></span>
+      <button class="mrd-close" onclick="cancelSheetPicker()" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--k3);margin-bottom:10px">
+        이 파일에 시트가 여러 개 있습니다. 실사에 사용할 시트를 선택해 주세요.<br>
+        선택한 시트들은 <strong>세로로 병합</strong>되어 하나의 리스트로 처리됩니다.<br>
+        <span style="color:var(--r)">⚠️ 헤더(컬럼명)가 서로 다른 시트는 병합할 수 없습니다.</span>
+      </div>
+      <div id="msp-list" style="max-height:320px;overflow:auto;border:1px solid var(--k5);border-radius:var(--rad2);padding:6px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-s btn-xs" onclick="sheetPickerSelectAll(true)">전체 선택</button>
+        <button class="btn btn-s btn-xs" onclick="sheetPickerSelectAll(false)">전체 해제</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="cancelSheetPicker()">취소</button>
+      <button class="btn btn-p" onclick="confirmSheetPicker()">선택 완료</button>
     </div>
   </div>
 </div>
@@ -1336,18 +1356,43 @@ async function loadFile(e, cat){
     try{
       const data = new Uint8Array(ev.target.result);
       const wb = XLSX.read(data, { type:'array' });
-      let best = wb.SheetNames[0], bestLen = 0;
-      for(const sn of wb.SheetNames){
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval:'' });
-        if(rows.length > bestLen){ bestLen = rows.length; best = sn; }
+      let rows;
+      if(wb.SheetNames.length <= 1){
+        // 시트 1개 → 자동 처리
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' });
+      } else {
+        // 시트 2개 이상 → 사용자 선택 팝업 (옵션 B + 안전 모드)
+        hideLoading();
+        let picked;
+        try{
+          picked = await openSheetPickerModal(wb, cat);
+        }catch(ex){
+          if(ex === 'CANCELLED'){ e.target.value=''; return; }
+          throw ex;
+        }
+        if(!picked || !picked.length){ e.target.value=''; return; }
+        showLoading(`${CAT_CODE[cat]} 시트 병합 중...`);
+        // 헤더 일치 검증 (안전 모드)
+        const sheetsData = picked.map(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval:'' }));
+        const firstHeaders = sheetsData[0].length ? Object.keys(sheetsData[0][0]) : [];
+        for(let i=1; i<sheetsData.length; i++){
+          const h = sheetsData[i].length ? Object.keys(sheetsData[i][0]) : [];
+          // 헤더 배열 동일 여부 (순서 무관, 집합 비교)
+          const sameSet = (h.length === firstHeaders.length) && h.every(x => firstHeaders.includes(x));
+          if(!sameSet){
+            hideLoading();
+            alert(`❌ 선택한 시트들의 헤더가 달라 병합할 수 없습니다.\n\n기준 시트: ${picked[0]}\n헤더: ${firstHeaders.join(', ')}\n\n문제 시트: ${picked[i]}\n헤더: ${h.join(', ')}\n\n헤더가 동일한 시트끼리만 선택하시거나, 엑셀에서 먼저 합쳐서 재업로드 해주세요.`);
+            e.target.value=''; return;
+          }
+        }
+        rows = sheetsData.flat();
       }
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[best], { defval:'' });
-      if(!rows.length){ hideLoading(); toast('데이터 없음','error'); return; }
+      if(!rows || !rows.length){ hideLoading(); toast('데이터 없음','error'); e.target.value=''; return; }
 
       S.rawData[cat] = rows;
       S.headers[cat] = Object.keys(rows[0]);
       S.files[cat] = file.name;
-      autoMap(cat);
+      await autoMap(cat);
 
       // DB 저장 (기존 해당 카테고리 삭제 → bulk insert)
       await supa.from('inventory_lists').delete().eq('session_id', S.sessionId).eq('category', cat);
@@ -1459,7 +1504,8 @@ function applyTemplateUIForRole(){
   const userCard  = document.getElementById('tpl-user-info');
   const statWrap  = document.getElementById('stat-tpl-wrap');
   if(adminCard) adminCard.style.display = isAdmin ? '' : 'none';
-  if(userCard)  userCard.style.display  = isAdmin ? 'none' : '';
+  // 일반 사용자에게는 자동 적용 안내 박스도 표시하지 않음 (관리자만 볼 이유 없음)
+  if(userCard)  userCard.style.display  = 'none';
   if(statWrap)  statWrap.style.display  = isAdmin ? '' : 'none';
 }
 window.useSharedTemplate = async function(tfId){
@@ -1498,33 +1544,122 @@ async function saveStep0AndNext(){
 
 /* ══════════════════ AUTO MAPPING + AI (C-5) ══════════════════ */
 const AUTO_HINTS = {
-  itemCode: ['품목코드','자재코드','item code','code','품번'],
-  itemName: ['품목명','품목명칭','item name','name','명칭'],
-  unit:     ['단위','unit','uom'],
-  location: ['로케이션','위치','location','구역','loc','창고'],
-  spec:     ['규격','spec','specification','사양'],
-  entityQty:['재고수량','바코드실사수량','실사수량','수량','qty','quantity','재고량','현재고'],
-  tagNo:    ['tag','sheet','row','no.'],
-  testNo:   ['test'],
-  bomCheck: ['bom','재료명세서'],
-  compRate: ['완성도','완성','stage']
+  // 품목코드: 한/영/ERP(SAP/Oracle/더존) 관용어 포괄
+  itemCode: [
+    '품목코드','품번','제품코드','상품코드','자재코드','자재번호','자재no','품목no',
+    'material no','material number','item code','item no','item number','part no','part number',
+    'sku','sku code','code','mat no','mat. no','material','matnr','article no','product code',
+    '품목','品名','物料编码'
+  ],
+  // 품목명
+  itemName: [
+    '품목명','품목명칭','품명','제품명','상품명','자재명','자재명칭','자재내역','명칭',
+    'item name','material name','product name','description','desc','material desc','name',
+    'material description','item description','material text','short text','maktx',
+    '品目名','材料名称'
+  ],
+  // 단위(UOM)
+  unit: [
+    '단위','단위명','기본단위','재고단위','측정단위','관리단위','단위코드','기준단위',
+    'unit','uom','uom code','unit of measure','base unit','meins','stockunit','stock unit'
+  ],
+  // 위치/창고
+  location: [
+    '로케이션','위치','창고','창고명','창고코드','보관장소','보관위치','저장위치','저장소','구역',
+    'location','loc','loc.','loc code','warehouse','wh','bin','bin code','bin location',
+    'storage','storage location','storage bin','site','plant','lgort','werks','zone',
+    '保管場所','仓库','库位'
+  ],
+  // 규격/사양
+  spec: [
+    '규격','사양','모델','모델명','타입','type','spec','specification','model','size','dimension',
+    'dim','size code','규격내역'
+  ],
+  // 장부수량 — 실사의 핵심 필드. 최대한 넓게 커버.
+  entityQty: [
+    '장부수량','장부상수량','장부상','장부재고','장부재고수량','장부수량(entity count)',
+    '재고수량','재고량','현재고','현재고수량','기말수량','기말재고','기말재고수량','기말잔량',
+    '실사수량','바코드실사수량','전산수량','전산재고','수불수량','재고잔량','잔량','잔고',
+    'book qty','book quantity','ledger qty','entity count','entity qty','entityqty','onhand','on-hand','on hand',
+    'stock','stock qty','stock quantity','balance','closing stock','closing balance','current stock',
+    'system qty','system quantity','quantity','qty','qty.','labst','clabs',
+    '帳簿数量','库存数量','在庫数量','残量'
+  ],
+  // Tag/Sheet/Row 번호 (실사표 일련번호)
+  tagNo: [
+    'tag no','tag#','tag num','tag','sheet no','sheet','row no','row#','row','line no','seq','seq no',
+    'serial','serial no','일련번호','순번','번호','no.'
+  ],
+  // Test count 번호 (템플릿 원본 유지 정책: 매핑 안 함)
+  testNo: ['test','test count','test no','test count 번호'],
+  // BOM 존재 여부 (WIP)
+  bomCheck: [
+    'bom','bom 여부','bom check','재료명세서','구성여부','구성요소','bill of materials'
+  ],
+  // 완성도/진척도 (WIP)
+  compRate: [
+    '완성도','완성','진척도','진행률','진행도','진도','공정단계','공정','단계',
+    'completion','progress','stage','maturity','work stage','phase'
+  ]
 };
-function autoMap(cat){
-  const headers = S.headers[cat];
+/**
+ * autoMap(cat): 파일 업로드 직후 호출되는 자동 매핑.
+ *   1) mapping_history(과거 사용빈도 DESC) 우선 조회 → 헤더가 일치하면 적용
+ *   2) 남은 필드는 AUTO_HINTS 사전으로 보충
+ * 비동기지만 loadFile 내부에서 await 하지 않더라도 화면 렌더 시점에 맞춰 반영됨.
+ */
+async function autoMap(cat){
+  const headers = S.headers[cat] || [];
   const fields = [...PIO_FIELDS.common, ...(cat==='wip'?PIO_FIELDS.wip_extra:[])];
   if(!S.mapping[cat]) S.mapping[cat] = {};
+
+  // ── (1) mapping_history 우선 조회 ──────────────────────
+  try{
+    const { data: hist } = await supa.from('mapping_history')
+      .select('source_header, pio_field, use_count')
+      .eq('category', cat)
+      .order('use_count', { ascending: false })
+      .limit(500);
+    if(hist && hist.length){
+      const headerLowerMap = {};
+      headers.forEach(h => headerLowerMap[String(h).toLowerCase().trim()] = h);
+      for(const row of hist){
+        const fieldKey = row.pio_field;
+        if(!fieldKey || S.mapping[cat][fieldKey]) continue; // 이미 매핑돼 있으면 skip
+        const srcLower = String(row.source_header||'').toLowerCase().trim();
+        if(!srcLower) continue;
+        // 1-a) 정확 일치
+        if(headerLowerMap[srcLower]){
+          S.mapping[cat][fieldKey] = headerLowerMap[srcLower];
+          continue;
+        }
+        // 1-b) 부분 일치 (양방향 includes)
+        for(const h of headers){
+          const hl = String(h).toLowerCase().trim();
+          if(hl.includes(srcLower) || srcLower.includes(hl)){
+            S.mapping[cat][fieldKey] = h; break;
+          }
+        }
+      }
+    }
+  }catch(e){ console.warn('[autoMap] mapping_history 조회 실패, AUTO_HINTS로 진행:', e); }
+
+  // ── (2) AUTO_HINTS 사전 보충 ────────────────────────────
   for(const fld of fields){
-    if(S.mapping[cat][fld.key]) continue;
+    if(S.mapping[cat][fld.key]) continue; // 이미 이력으로 매핑됐으면 skip
     const hints = AUTO_HINTS[fld.key] || [];
     let matched = '';
     for(const hint of hints){
+      const hintL = hint.toLowerCase();
       for(const h of headers){
-        if(String(h).toLowerCase().trim().includes(hint.toLowerCase())){ matched = h; break; }
+        if(String(h).toLowerCase().trim().includes(hintL)){ matched = h; break; }
       }
       if(matched) break;
     }
     S.mapping[cat][fld.key] = matched;
   }
+  // Step 2 UI 열려 있으면 리렌더 (파일 업로드 후 매핑 화면 첫 진입 시에도 적용되도록)
+  try{ if(typeof renderMapping === 'function' && S.currentStep === 1) renderMapping(); }catch(e){}
 }
 
 async function applyAIMapping(){
@@ -2556,6 +2691,7 @@ window.adminEditSchema = async function(tfId, tfName){
     <button class="btn btn-p" onclick="saveAllSchemas('${tfId}')">💾 모두 저장</button>
   `;
   const editor = document.getElementById('adm-schema-editor');
+  if(!editor) return; // 관리자 UI에서 스키마 편집 카드가 삭제된 경우 안전 무시
   editor.innerHTML = body;
 };
 window.saveAllSchemas = async function(tfId){
@@ -2687,6 +2823,59 @@ function showLoading(msg){
   document.getElementById('loading').classList.add('on');
 }
 function hideLoading(){ document.getElementById('loading').classList.remove('on'); }
+
+/* ════════════════ 다중 시트 선택 팝업 ════════════════ */
+const SheetPicker = { wb:null, resolver:null, sheets:[] };
+window.SheetPicker = SheetPicker;
+
+function openSheetPickerModal(wb, cat){
+  return new Promise((resolve, reject)=>{
+    SheetPicker.wb = wb;
+    SheetPicker.resolver = { resolve, reject };
+    SheetPicker.sheets = wb.SheetNames.map(sn => {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval:'' });
+      const firstRow = rows[0] || {};
+      const colCount = Object.keys(firstRow).length;
+      return { name: sn, rows: rows.length, cols: colCount };
+    });
+    // 기본값: 가장 행이 많은 시트만 체크
+    const maxRows = Math.max(0, ...SheetPicker.sheets.map(s=>s.rows));
+    SheetPicker.sheets.forEach(s => s.checked = (s.rows === maxRows && s.rows > 0));
+    document.getElementById('msp-cat-label').textContent = CAT_CODE[cat] || cat.toUpperCase();
+    renderSheetPickerList();
+    document.getElementById('modal-sheet-picker').classList.add('on');
+  });
+}
+function renderSheetPickerList(){
+  const body = document.getElementById('msp-list');
+  body.innerHTML = SheetPicker.sheets.map((s, i)=>{
+    const disabled = (s.rows === 0);
+    return `<label style="display:flex;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--k6);${disabled?'opacity:.5;cursor:not-allowed':'cursor:pointer'}">
+      <input type="checkbox" ${s.checked?'checked':''} ${disabled?'disabled':''} onchange="SheetPicker.sheets[${i}].checked=this.checked">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${escapeHtml(s.name)}${disabled?' <span style="color:var(--r);font-size:11px;font-weight:400">(빈 시트)</span>':''}</div>
+        <div style="font-size:11px;color:var(--k3)">${s.rows.toLocaleString()}행 × ${s.cols}컬럼</div>
+      </div>
+    </label>`;
+  }).join('');
+}
+function sheetPickerSelectAll(v){
+  SheetPicker.sheets.forEach(s => { if(s.rows > 0) s.checked = v; });
+  renderSheetPickerList();
+}
+function confirmSheetPicker(){
+  const picked = SheetPicker.sheets.filter(s=>s.checked).map(s=>s.name);
+  if(!picked.length){ alert('하나 이상의 시트를 선택해 주세요.'); return; }
+  document.getElementById('modal-sheet-picker').classList.remove('on');
+  const r = SheetPicker.resolver; SheetPicker.resolver = null;
+  if(r) r.resolve(picked);
+}
+function cancelSheetPicker(){
+  document.getElementById('modal-sheet-picker').classList.remove('on');
+  const r = SheetPicker.resolver; SheetPicker.resolver = null;
+  if(r) r.reject('CANCELLED');
+}
+
 /* ══════════════════ MOBILE ROW DETAIL (모바일 행 팝업) ══════════════════ */
 const MRD = { proc:null, cat:null, index:0 };
 

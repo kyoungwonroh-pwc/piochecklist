@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>재고실사 — PwC 삼일</title>
+<title>재고실사 — PwC 삼일 v8</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -467,7 +467,7 @@ tr:hover{background:var(--o4)}
 <!-- STEP 1 -->
 <section class="step" id="step-1">
   <h1 class="step-title">2. 헤더 매핑</h1>
-  <p class="step-desc">실사 리스트 컬럼을 PIO 템플릿 필드와 연결합니다.</p>
+  <p class="step-desc">실사 리스트 컬럼을 PIO 템플릿 필드와 연결합니다. <span style="color:var(--p);font-weight:700">🤖 AI 제안</span> 버튼으로 과거 매핑 학습값을 적용할 수 있습니다.</p>
   <div class="tabs">
     <div class="tab active" data-cat="rm" onclick="switchMapTab('rm')">RM 원재료</div>
     <div class="tab" data-cat="wip" onclick="switchMapTab('wip')">WIP 재공품</div>
@@ -834,7 +834,7 @@ tr:hover{background:var(--o4)}
 /* ════════════════════════════════════════════════════════════
    ★ SUPABASE 설정 — 여기에 본인 프로젝트 값 입력 ★
    ════════════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://rafqfgwtkniyhiwaubnf.supabase.co/rest/v1/'; 
+const SUPABASE_URL = 'https://rafqfgwtkniyhiwaubnf.supabase.co/rest/v1/';
 const SUPABASE_ANON_KEY = 'sb_publishable_aOqm2TOAhws802EKvRhVUA_Xr-NoXw7';
 /* ════════════════════════════════════════════════════════════ */
 

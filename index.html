@@ -668,7 +668,7 @@ tr:hover{background:var(--o4)}
       <div class="admin-tab active" onclick="switchAdminTab('users')">👥 사용자</div>
       <div class="admin-tab" onclick="switchAdminTab('stats')">📊 통계 대시보드</div>
       <div class="admin-tab" onclick="switchAdminTab('templates')">📋 공용 템플릿</div>
-      <div class="admin-tab" onclick="switchAdminTab('logs')">📜 감사 로그</div>
+      <div class="admin-tab" onclick="switchAdminTab('logs')">📜 활동 로그</div>
     </div>
 
     <div class="admin-panel active" id="panel-users">
@@ -729,7 +729,7 @@ tr:hover{background:var(--o4)}
     <div class="admin-panel" id="panel-logs">
       <div class="card">
         <div class="card-title">
-          <div class="ct-left">📜 최근 감사 로그 (C-4)</div>
+          <div class="ct-left">📜 최근 활동 로그 (C-4)</div>
           <select class="select" id="adm-log-filter" onchange="renderAdminLogs()">
             <option value="all">전체 액션</option>
             <option value="login">로그인</option>

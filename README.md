@@ -1,98 +1,96 @@
-# 📊 PwC 재고실사 자동화 플랫폼 (Inventory Count Automation)
+# 📦 PwC 재고실사 자동화 플랫폼
 
-> **PwC 감사 실무 기반의 재고실사 전 과정 디지털화 솔루션**  
-> Excel 업로드부터 샘플링, 이중검증, 차이분석, 결과 다운로드까지 — PC와 모바일에서 실시간 동기화되는 웹 기반 통합 플랫폼
-
-![Tech](https://img.shields.io/badge/Frontend-Vanilla_JS-yellow) ![Tech](https://img.shields.io/badge/Backend-Supabase-green) ![Tech](https://img.shields.io/badge/Deploy-GitHub_Pages-black) ![Status](https://img.shields.io/badge/Status-Production-blue)
+> 재고실사 프로세스를 디지털화한 웹 및 모바일 기반 샘플링·실사·보고 자동화 도구
 
 ---
 
 ## 🎯 프로젝트 개요
 
-본 프로그램은 **PwC 감사 방법론(PIO: Physical Inventory Observation)** 에 기반하여, 기존 수작업 중심의 재고실사 프로세스를 **디지털 자동화**한 웹 기반 플랫폼입니다.  
-감사팀 내에서 **동일한 데이터를 실시간으로 공유**하며, Sheet→Floor, Floor→Sheet 양방향 이중검증을 모바일 환경에서도 끊김없이 수행할 수 있도록 설계되었습니다.
+**재고실사 업무 과정**을 단일 HTML 파일과 Supabase 백엔드로 전면 자동화합니다. 
+
+Excel 업로드 → 헤더 자동 매핑 → 랜덤 샘플링 → 현장 실사 → PIO 표준 템플릿 자동 생성까지 **한 번에** 처리합니다.
 
 ---
 
-## ✨ 주요 기능
+## ✨ 핵심 기능
 
-### 📁 Step 1. 파일 업로드
-- 회사 ERP에서 추출한 **원재료(RM) / 재공품(WIP) / 완제품(FG)** Excel 파일을 드래그앤드롭으로 업로드
-- `.xls` / `.xlsx` 형식 자동 파싱 (SheetJS 라이브러리 활용)
-
-### 🗂️ Step 2. 헤더 매핑
-- 회사별로 다른 Excel 컬럼명을 **표준 필드(품목코드/품명/규격/수량/단위/위치)** 에 자동 매핑
-- 한/영 혼용 컬럼 키워드 스마트 인식
-
-### 🎲 Step 3. 샘플링 설정
-- **금액 기준 상위 N%** + **난수 기반 표본** 혼합 샘플링 알고리즘
-- 감사 유의성(Materiality)을 고려한 자동 추출
-
-### 📋 Step 4. Sheet → Floor 실사
-- 장부 상 품목이 **현장에 실제 존재하는지** 검증
-- 실사 수량 입력 → 차이 자동 계산 → 상태 표시 (일치/불일치)
-
-### 🔍 Step 5. Floor → Sheet 실사 (모바일 최적화)
-- 현장에서 발견된 품목이 **장부에 등재되어 있는지** 역방향 검증
-- 품목코드/품명 실시간 검색 드롭다운
-- 동일 품목도 위치/수량이 다르면 **중복 등록 허용**
-
-### 📊 Step 6. 결과 & 다운로드
-- 카테고리별 실사 결과 자동 집계 (일치율 / 차이금액 / 비고)
-- **PwC 표준 PIO 템플릿 형식**으로 Excel 내보내기
+| 단계 | 기능 | 설명 |
+|------|------|------|
+| **Step 1** | 📤 파일 업로드 | RM/WIP/FG 재고 리스트 엑셀 업로드 (`.xls`, `.xlsx` 지원) |
+| **Step 2** | 🔀 헤더 자동 매핑 | 정규화 매칭 알고리즘으로 `"규 격"`·`"NO/구분"` 등 특이 헤더도 자동 인식 |
+| **Step 3** | 🎲 랜덤 샘플링 | 유효 재고 행 중 지정한 개수만큼 난수 기반(Fisher-Yates) 무작위 추출 |
+| **Step 4** | ✍️ Sheet→Floor 실사 | 장부 → 현장 검증, 차이·사유 기록, 확인/재샘플링 토글 |
+| **Step 5** | 🔍 Floor→Sheet 실사 | 현장 → 장부 검증, 중복 검증(Purple 하이라이트) |
+| **Step 6** | 📊 최종 산출물 | PIO 표준 엑셀 템플릿 자동 채움, 진단표·대시보드 생성 |
 
 ---
 
-## 🔐 사용자 인증 & 권한
+## 🏗️ 시스템 아키텍처
 
-- Supabase Auth 기반 **login_id + 비밀번호** 로그인 (사내 ID 체계 호환)
-- **관리자(admin) / 일반사용자(user)** 역할 분리
-- 관리자 대시보드: 사용자 승인, 세션 모니터링, 템플릿 관리
+시스템은 **사용자 화면**과 **Supabase 클라우드**의 2계층으로 구성됩니다.
 
----
+### 👤 사용자 화면 (브라우저에서 실행)
 
-## ☁️ 실시간 동기화
+감사팀원이 PC나 태블릿 브라우저로 HTML 파일을 열면 곧바로 작동합니다. 별도 서버 설치가 필요 없으며, 모든 UI 렌더링·엑셀 파싱·샘플링 계산이 브라우저 안에서 이루어집니다. **SheetJS**가 엑셀 파일을 읽고, **ExcelJS**가 최종 산출물을 생성하며, **Supabase JS SDK**가 클라우드와 통신을 담당합니다.
 
-- **PC → 모바일** 세션 연속성: 사무실에서 시작한 실사를 현장 모바일에서 이어 진행
-- **다중 사용자 협업**: 회사 담당자와 PwC 입회자가 같은 세션을 동시 업데이트
-- Supabase Realtime 채널 기반 상태 반영
+### ☁️ Supabase 클라우드 (백엔드 통합 서비스)
 
----
+데이터 저장과 관리는 Supabase가 전담합니다. **Auth**는 팀원 로그인과 권한을 관리하고, **PostgreSQL**은 세션·샘플·재고·매핑 이력 등 구조화된 데이터를 저장하며, **Storage**는 공용 PIO 템플릿 엑셀 파일을 보관합니다. **Realtime** 기능은 여러 감사팀원이 동시에 작업할 때 변경 사항을 즉시 동기화해 실시간 협업을 지원합니다.
 
-## 🧰 기술 스택
+### 📂 외부 파일 처리
 
-| 영역 | 기술 |
-|---|---|
-| **Frontend** | HTML5 · CSS3 · Vanilla JavaScript (No Framework) |
-| **Library** | SheetJS (xlsx) · Supabase JS Client |
-| **Backend** | Supabase (PostgreSQL + Auth + Storage + Realtime) |
-| **Security** | Row Level Security (RLS) · JWT Token |
-| **Deploy** | GitHub Pages (Static Hosting) |
-| **Design** | PwC Brand Identity (Orange #D04A02, Inter Font) |
-
-
-## 🗄️ 데이터베이스 설계
-
-- **profiles** : 사용자 정보 (login_id, role, 가입일)
-- **count_sessions** : 실사 세션 (제목, 진행단계, 작성자)
-- **inventory_lists** : 원본 재고 데이터 (카테고리별 저장)
-- **sampled_items** : 샘플링 결과
-- **count_results** : 실사 결과 (회사측/PwC측 수량, 차이)
-- **template_files** : 관리자 업로드 템플릿
-- 모든 테이블에 **RLS 정책** 적용 — 본인 데이터만 접근
+재고 리스트 엑셀은 브라우저 메모리에서 직접 파싱되며, 원본 파일은 Supabase에 업로드되지 않습니다. 샘플링 결과와 실사 내역만 DB에 저장되어 **개인정보·영업비밀 유출 위험을 최소화**합니다. 최종 산출물은 브라우저에서 생성되어 사용자 PC로 직접 다운로드됩니다.
 
 ---
 
-## 🚀 시작하기
+## 🔄 사용 흐름
 
-### 1. 저장소 클론
-```bash
-git clone https://github.com/yourname/inventory-count.git
-2. Supabase 설정
-Supabase 프로젝트 생성 후 supabase_schema_v8.sql 실행
-SUPABASE_URL, SUPABASE_ANON_KEY를 HTML 상단에 입력
-3. GitHub Pages 배포
-저장소 Settings → Pages → main 브랜치 선택 → Save
-생성된 URL을 Supabase Auth → URL Configuration에 등록
-📊 성과 및 효과지표Before (수작업)After (본 프로그램)샘플링 소요시간약 2시간30초 (자동)데이터 전달 오류빈번 (수기 입력)0건 (실시간 DB)현장 실사 방식종이 + 펜모바일 웹 브라우저결과 집계반나절 (Excel 수작업)즉시 (자동 다운로드)이중검증부분 수행100% Sheet↔Floor 검증📜 라이선스본 프로젝트는 PwC 내부 교육 및 방법론 확산 목적으로 개발되었습니다.👤 개발자[본인 이름] | PwC Assurance | [이메일]
-"감사의 디지털 트랜스포메이션, 현장에서 시작합니다."
+1. 🔐 **로그인** — Supabase Auth로 팀원 인증
+2. 🆕 **세션 생성** — 프로젝트 단위로 실사 구분
+3. 📤 **파일 업로드** — RM(원재료) · WIP(재공품) · FG(제품) 재고 리스트 엑셀 3종 업로드
+4. 🔀 **헤더 매핑** — 자동 감지 + 수동 확인으로 컬럼 정렬
+5. 🎲 **샘플링 실행** — 사용자가 지정한 개수만큼 난수 기반 무작위 추출
+6. ✍️ **현장 실사** — Sheet→Floor(장부→현장) + Floor→Sheet(현장→장부) 양방향 검증
+7. 📊 **산출물 다운로드** — PIO 표준 엑셀 자동 생성 및 다운로드
+
+---
+
+## 🏗️ 기술 스택
+
+### 사용자 화면 (Frontend)
+- **단일 HTML 파일** (바닐라 JS + CSS)
+- **라이브러리**: SheetJS, ExcelJS, Supabase JS SDK
+- **반응형 UI**: 데스크탑 테이블 ↔ 모바일 모달 자동 전환
+
+### 백엔드 (Supabase)
+- 🗄️ **PostgreSQL DB**: 세션/샘플/재고/사용자 데이터
+- 📁 **Storage**: 템플릿 파일 저장
+- 🔐 **Auth**: 로그인/권한 관리
+- ⚡ **Realtime**: 다중 사용자 실시간 동기화
+
+---
+
+## 🗂️ 데이터베이스 구조
+
+| 테이블 | 역할 |
+|--------|------|
+| `profiles` | 사용자 정보 (admin / member) |
+| `count_sessions` | 실사 세션 (프로젝트 단위) |
+| `inventory_lists` | 업로드된 재고 전체 데이터 |
+| `count_samples` | 샘플링 결과 및 실사 내역 |
+| `template_files` | 공용 템플릿 엑셀 파일 메타 |
+| `mapping_history` | 헤더 매핑 학습 이력 |
+| `audit_logs` | 감사 로그 (변경 추적) |
+
+---
+
+## 🎨 UX 특징
+
+- 🌐 **단일 파일 배포** — 서버 없이 HTML 하나로 실행
+- 📱 **모바일 대응** — 현장 태블릿·스마트폰 최적화
+- 🔄 **실시간 협업** — 여러 감사팀원이 동시 실사 가능
+- 🎯 **자동 매핑 학습** — 이전 매핑 기록을 DB에 저장, 다음 프로젝트에 자동 적용
+
+  
+
+---
